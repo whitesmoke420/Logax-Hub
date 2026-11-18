@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LOGAX Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* LOGAX brand: deep burgundy + cream + gold, boutique serif wordmark over a clean sans.
+   Layout: one column, tool tabs on top, form on the left / results on the right on wide screens. */
+:root {
+  --bg: #FBF6EF;
+  --panel: #FFFFFF;
+  --ink: #2A1E1A;
+  --muted: #6B5A4E;
+  --line: #E6DACB;
+  --brand: #5C1A26;
+  --brand-ink: #FBF6EF;
+  --gold: #B07A10;
+  --gold-soft: #F3E6C8;
+  --focus: #B07A10;
+  --display: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+  --body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1C1416; --panel: #261B1E; --ink: #F3EAE0; --muted: #BFAE9F; --line: #3D2C30;
+    --brand: #7A2635; --brand-ink: #FBF6EF; --gold: #E3A82B; --gold-soft: #3A2C1A; --focus: #E3A82B;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1C1416; --panel: #261B1E; --ink: #F3EAE0; --muted: #BFAE9F; --line: #3D2C30;
+  --brand: #7A2635; --brand-ink: #FBF6EF; --gold: #E3A82B; --gold-soft: #3A2C1A; --focus: #E3A82B;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.5; }
+header.top { background: var(--brand); color: var(--brand-ink); padding: 18px 20px; }
+.top-inner { max-width: 1080px; margin: 0 auto; display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.wordmark { font-family: var(--display); font-size: 30px; letter-spacing: 0.28em; margin: 0; font-weight: 600; }
+.wordmark span { font-family: var(--body); font-size: 13px; letter-spacing: 0.18em; color: #E3A82B; margin-left: 10px; font-weight: 600; }
+.top small { opacity: 0.85; font-size: 14px; }
+main { max-width: 1080px; margin: 0 auto; padding: 20px 16px 48px; display: flex; flex-direction: column; gap: 20px; }
+nav.tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+nav.tabs button { font: inherit; font-size: 15px; font-weight: 600; padding: 10px 16px; border-radius: 6px; border: 2px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+nav.tabs button[aria-selected="true"] { border-color: var(--brand); background: var(--brand); color: var(--brand-ink); }
+.notice { background: var(--gold-soft); border: 1px solid var(--gold); color: var(--ink); padding: 12px 14px; border-radius: 6px; font-size: 15px; }
+.notice[hidden] { display: none; }
+.tool { display: grid; grid-template-columns: minmax(0, 560px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.tool .results { position: sticky; top: 16px; }
+@media (max-width: 820px) { .tool { grid-template-columns: 1fr; } .tool .results { position: static; } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.panel h2 { font-family: var(--display); font-size: 28px; margin: 0; text-wrap: balance; font-weight: 600; }
+.panel p.lead { margin: 0; color: var(--muted); font-size: 15px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label, .field legend { font-weight: 600; font-size: 15px; }
+.field .hint { color: var(--muted); font-size: 13px; }
+select, input[type="text"], textarea { font: inherit; font-size: 16px; color: var(--ink); background: var(--bg); border: 2px solid var(--line); border-radius: 6px; padding: 10px 12px; width: 100%; }
+textarea { min-height: 72px; resize: vertical; }
+fieldset { border: 0; margin: 0; padding: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips label { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border: 2px solid var(--line); border-radius: 999px; cursor: pointer; font-weight: 500; font-size: 15px; background: var(--bg); }
+.chips input { accent-color: var(--brand); }
+.chips label:has(input:checked) { border-color: var(--brand); background: var(--gold-soft); }
+button.primary { font: inherit; font-weight: 600; font-size: 17px; padding: 14px 18px; border: 0; border-radius: 6px; background: var(--brand); color: var(--brand-ink); cursor: pointer; }
+button.primary[disabled] { opacity: 0.6; cursor: wait; }
+button.ghost { font: inherit; font-size: 14px; font-weight: 600; padding: 8px 12px; border-radius: 6px; border: 2px solid var(--brand); background: transparent; color: var(--brand); cursor: pointer; }
+:root[data-theme="dark"] button.ghost { color: var(--gold); border-color: var(--gold); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) button.ghost { color: var(--gold); border-color: var(--gold); } }
+button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, .chips label:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
+.results { display: flex; flex-direction: column; gap: 14px; }
+.results h3 { margin: 0; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.card { background: var(--panel); border: 1px solid var(--line); border-left: 0; border-radius: 8px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.card .meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tag { font-size: 13px; font-weight: 600; color: var(--gold); letter-spacing: 0.06em; text-transform: uppercase; }
+.card .text { white-space: pre-wrap; margin: 0; font-size: 16px; }
+.card .tags { color: var(--muted); font-size: 15px; margin: 0; }
+.example { opacity: 0.85; }
+.status { color: var(--muted); font-size: 15px; min-height: 1.5em; }
+.settings { font-size: 14px; color: var(--muted); }
+.settings summary { cursor: pointer; font-weight: 600; color: var(--ink); }
+.settings .field { margin-top: 10px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <p class="wordmark">LOGAX<span>HUB</span></p>
+    <small>Your tools for running the store. Built by SiteSwift.</small>
+  </div>
+</header>
+
+<main>
+  <nav class="tabs" id="tabs" aria-label="Hub tools"></nav>
+  <div class="notice" id="ai-notice" hidden>The AI isn't running. Open LOGAX Hub with the desktop shortcut (it starts the AI for you), then try again.</div>
+  <section id="tool-area" aria-live="polite"></section>
+  <details class="settings">
+    <summary>Store settings</summary>
+    <div class="field">
+      <label for="store-link">Store link (added to every post)</label>
+      <input type="text" id="store-link" value="https://logax-sse4610z.myshopify.com">
+      <span class="hint">Change this once the store has its own web address. It's remembered in this browser.</span>
+    </div>
+    <div class="field">
+      <label for="ai-model">AI model (local AI only)</label>
+      <input type="text" id="ai-model" value="llama3.1:8b">
+      <span class="hint">The model the setup installed. Only change this if you install a different one.</span>
+    </div>
+    <div class="field">
+      <label for="ai-address">AI address (local AI only)</label>
+      <input type="text" id="ai-address" value="http://localhost:11434">
+    </div>
+    <p class="hint" id="ai-engine-line"></p>
+  </details>
+</main>
+
+<script>
+/* ============================================================
+   STORE FACTS: the AI uses these in every tool.
+   Edit here when products, prices or dates change.
+   ============================================================ */
+const STORE = {
+  name: "LOGAX",
+  pitch: "Personalized gifts and cozy apparel, made to order.",
+  audience: "Moms, grandmas and gift shoppers. Keep wording simple, warm and easy to read.",
+  christmasDeadline: "December 10",
+  products: [
+    { name: "Personalized Name Hoodie", price: "$44.99", details: "Any name printed on a soft, warm fleece hoodie. Sizes S to 3XL." },
+    { name: "\"Blessed Beyond Measure\" Hoodie", price: "$39.99", details: "Soft fleece hoodie with an uplifting message." },
+    { name: "\"Peachy\" Hoodie", price: "$39.99", details: "Fun, feel-good hoodie. Great for teens, sisters and best friends." },
+    { name: "Personalized Family Christmas Ornament", price: "$16.99", details: "Family names and the year on a keepsake ornament, ready to hang." }
+  ]
+};
+
+/* ============================================================
+   HUMAN VOICE: every tool adds these rules so posts sound like
+   the owner wrote them himself. Edit to change the voice.
+   ============================================================ */
+const HUMAN_VOICE = [
+  "- Write like the owner of a small family gift shop talking to friends and neighbors on Facebook. Casual, warm, real.",
+  "- Use \"I\" or \"we\", contractions (it's, you'll, we're) and everyday words. A little imperfection is fine.",
+  "- Never mention AI, robots, automation, or that the post was written by a tool.",
+  "- Never use dashes of any kind (no em dashes, no en dashes, no \" - \" between phrases). Use periods or commas instead.",
+  "- Avoid words and phrases that sound like marketing robots: elevate, unleash, discover, look no further, whether you're, perfect for any occasion, must-have, game-changer, take it to the next level, embrace, cherish the moments, treat yourself, in today's world, not just a.",
+  "- Don't open with a question every time and don't use three-item lists of adjectives. Don't start every line with an emoji.",
+  "- Make the 3 posts genuinely different from each other: different openings, lengths and angles (for example one warm note from the owner, one simple announcement, one short and punchy).",
+  "- Never make up customers, reviews, quotes, sales numbers or personal stories that didn't happen. Warm and personal, but true."
+].join("\n");
+
+function storeLink() {
+  const v = document.getElementById("store-link").value.trim();
+  return v || "https://logax-sse4610z.myshopify.com";
+}
+function storeFactsText() {
+  return [
+    `Store: ${STORE.name}. ${STORE.pitch}`,
+    `Audience: ${STORE.audience}`,
+    `Order by ${STORE.christmasDeadline} for Christmas delivery.`,
+    `Store link: ${storeLink()}`,
+    "Products:",
+    ...STORE.products.map(p => `- ${p.name} (${p.price}): ${p.details}`)
+  ].join("\n");
+}
+
+/* ============================================================
+   TOOLS: each tool is one object in this list.
+   To add a tool, copy the Post Writer object, change its id,
+   name, fields and buildPrompt. The tab and form appear on
+   their own.
+   Field types: "select", "chips", "text", "textarea".
+   buildPrompt(values) returns the instructions sent to the AI.
+   The AI must answer with JSON: [{ "label", "text", "hashtags" }].
+   ============================================================ */
+const TOOLS = [
+  {
+    id: "post-writer",
+    name: "Post Writer",
+    title: "Write a post",
+    lead: "Pick a product, where it's going, what kind of post and a mood. You'll get 3 ready-to-use versions. TikTok and Reels come as simple video scripts you can film on your phone.",
+    button: "Write 3 posts",
+    fields: [
+      { id: "product", label: "Product", type: "select",
+        options: () => [...STORE.products.map(p => p.name), "The whole store"] },
+      { id: "platform", label: "Where will you post it?", type: "chips",
+        options: ["TikTok", "Instagram Reel", "Instagram post", "Facebook", "Facebook Marketplace"], value: "TikTok" },
+      { id: "need", label: "For TikTok and Reels, what do you need?", type: "chips",
+        options: ["Video plan + caption", "Just the caption"], value: "Video plan + caption",
+        hint: "Video plan tells you what to film. Pick \"Just the caption\" if you already have the video." },
+      { id: "kind", label: "What kind of post?", type: "chips",
+        options: ["Show off a product", "Gift idea", "Watch it get made", "Unboxing", "Name ideas", "Christmas deadline", "Sale or discount", "Answer a question", "Ask your followers", "Story behind the shop"],
+        value: "Show off a product" },
+      { id: "mood", label: "Mood", type: "chips",
+        options: ["Cozy & warm", "Heartfelt", "Fun & playful", "Funny", "Classy", "Excited", "Calm & simple", "Hurry, Christmas is close"], value: "Cozy & warm" },
+      { id: "length", label: "Length", type: "chips",
+        options: ["Short", "Medium", "Longer"], value: "Short" },
+      { id: "extra", label: "Anything to mention? (optional)", type: "textarea",
+        placeholder: "Example: 10% off this weekend with code COZY10", hint: "Sales, codes, new colors, something that happened this week." }
+    ],
+    example: [
+      { label: "TikTok: Watch it get made", text: "HOOK (on screen, first 2 seconds):\nPOV: you're getting her name on a hoodie for Christmas\n\nSHOTS:\n1. Close up of the plain hoodie folded on a table\n2. Phone screen typing the name on the store\n3. The finished hoodie held up to the camera\n4. Fold it, drop it in a gift bag\n\nTEXT ON SCREEN:\nany name you want\nsoft and warm inside\norder by Dec 10 for Christmas\n\nSOUND: pick a calm trending sound in the TikTok app\n\nCAPTION:\nmade just for her 🧡 link in bio https://logax-sse4610z.myshopify.com", hashtags: "#personalizedgifts #christmasgift #giftideasforher #smallbusiness" }
+    ],
+    buildPrompt: v => {
+      const videoPlatform = v.platform === "TikTok" || v.platform === "Instagram Reel";
+      const captionOnly = videoPlatform && v.need === "Just the caption";
+      const isVideo = videoPlatform && !captionOnly;
+      const lengthRule = {
+        "Short": isVideo ? "Video length 7 to 15 seconds, 2 to 4 shots." : "2 to 3 short lines.",
+        "Medium": isVideo ? "Video length 15 to 30 seconds, 3 to 5 shots." : "4 to 6 short lines.",
+        "Longer": isVideo ? "Video length 30 to 45 seconds, 5 to 7 shots." : "A short paragraph or two, still easy to read."
+      }[v.length] || "";
+      const platformRules = {
+        "TikTok": [
+          "- Write each one as a simple TikTok video script he can film himself with a phone at home. Only use shots of things he really has: the products, a table, a gift bag, his hands, his phone, the store website. No actors, no studio.",
+          "- Format each script exactly with these headings on their own lines: HOOK (on screen, first 2 seconds), SHOTS (numbered), TEXT ON SCREEN (short lowercase lines), SOUND, CAPTION.",
+          "- The hook must stop the scroll in under 2 seconds. Use real TikTok styles like \"POV:\", \"things I'd buy my mom\", \"the gift nobody else will think of\", \"wait for it\", but don't copy the same hook twice.",
+          "- SOUND: never name a specific song (trends change daily). Say what kind of sound to pick in the TikTok app, like \"a calm trending sound\" or \"an upbeat trending sound\".",
+          "- CAPTION: one short casual lowercase line plus \"link in bio\" and the store link.",
+          "- Hashtags: 3 to 5, lowercase, mixing broad (#giftideas) and specific (#personalizedhoodie). Don't use #fyp or #foryou."
+        ],
+        "Instagram Reel": [
+          "- Write each one as a simple Instagram Reel script he can film himself with a phone at home. Only use shots of things he really has: the products, a table, a gift bag, his hands, his phone, the store website.",
+          "- Format each script exactly with these headings on their own lines: HOOK (on screen, first 2 seconds), SHOTS (numbered), TEXT ON SCREEN, AUDIO, CAPTION.",
+          "- AUDIO: never name a specific song. Say what kind of trending audio to pick in the Instagram app.",
+          "- CAPTION: 1 to 3 warm lines, then \"link in bio\" and the store link.",
+          "- Hashtags: 4 to 8 relevant ones."
+        ],
+        "Instagram post": [
+          "- Instagram photo post caption. Start with a strong first line, since only that shows before \"more\".",
+          "- End with \"link in bio\" and the store link.",
+          "- Hashtags: 4 to 8 relevant ones."
+        ],
+        "Facebook": [
+          "- Facebook post. Friendly, like posting to a local community. Put the store link on its own line.",
+          "- Hashtags: 0 to 3, optional."
+        ],
+        "Facebook Marketplace": [
+          "- Marketplace listing description: start with the product name and price, then sizes or details, then how to order with the store link. No hashtags."
+        ]
+      }[v.platform] || [];
+      if (captionOnly) {
+        platformRules.length = 0;
+        platformRules.push(
+          `- He already filmed the video. Write ONLY the ${v.platform} caption, no filming plan.`,
+          "- First line has to grab attention on its own. Then 1 or 2 more short casual lines.",
+          "- End with \"link in bio\" and the store link.",
+          v.platform === "TikTok" ? "- Put 3 to 5 lowercase hashtags in the hashtags field only. Don't use #fyp or #foryou." : "- Put 4 to 8 hashtags in the hashtags field only."
+        );
+      }
+      if (isVideo) platformRules.push("- Put every heading on its own line, and every numbered shot on its own line. Don't put quote marks around on-screen text.");
+      platformRules.push("- Hashtags go ONLY in the hashtags field, never inside the post text or caption.");
+      const kindHints = {
+        "Show off a product": "Focus on what makes the product nice: how it looks, feels and who it's for.",
+        "Gift idea": "Frame it as the answer to \"what do I get them?\" for a specific person (mom, grandma, sister, best friend, kids).",
+        "Watch it get made": "Show the steps from plain item to finished personalized gift. Satisfying and simple.",
+        "Unboxing": "Show opening the package and seeing the name for the first time.",
+        "Name ideas": "Play with names: the person's name, a nickname, \"Mama\", \"Nana\", a family name, a pet's name.",
+        "Christmas deadline": `Remind people to order by ${STORE.christmasDeadline} for Christmas. Urgent but friendly, not pushy.`,
+        "Sale or discount": "Only mention a sale or code if it's written in \"Also mention\". If none is given, don't invent one; just make it a general shopping post.",
+        "Answer a question": "Answer a common customer question (sizing, how to add a name, shipping time, washing) using only the store facts.",
+        "Ask your followers": "Ask a fun question people will want to answer in the comments (like which color, who they'd gift it to, best nickname).",
+        "Story behind the shop": "Talk about why the shop makes personalized gifts and that every item is made to order. Don't invent specific events or history."
+      }[v.kind] || "";
+      return [
+        "You write social media content for a small online gift shop.",
+        storeFactsText(),
+        `Today's date: ${new Date().toDateString()}.`,
+        "",
+        `Write 3 different ${v.platform} ${isVideo ? "video scripts" : "posts"} about: ${v.product}.`,
+        `Type of post: ${v.kind}. ${kindHints}`,
+        `Mood: ${v.mood}.`,
+        `Length: ${lengthRule}`,
+        v.extra ? `Also mention: ${v.extra}` : "",
+        "",
+        "Rules:",
+        HUMAN_VOICE,
+        ...platformRules,
+        `- Every one must include the store link exactly as written: ${storeLink()}`,
+        "- Never use placeholders like [link] or [your store]. Never invent prices, sales, reviews or shipping promises that aren't in the store facts.",
+        "- At most 1 or 2 emoji, and some can have none.",
+        "",
+        "Answer with only a JSON array of 3 objects: [{\"label\": short angle name, \"text\": the full post or script, \"hashtags\": hashtags as one string, or empty}]"
+      ].filter(Boolean).join("\n");
+    }
+  }
+];
+
+/* ============================================================
+   APP: you shouldn't need to change anything below this line
+   to add a tool.
+   ============================================================ */
+const tabsEl = document.getElementById("tabs");
+const areaEl = document.getElementById("tool-area");
+const noticeEl = document.getElementById("ai-notice");
+let sampleFn = null;
+let activeTool = TOOLS[0];
+
+try {
+  const saved = localStorage.getItem("logax-store-link");
+  if (saved) document.getElementById("store-link").value = saved;
+} catch (e) {}
+document.getElementById("store-link").addEventListener("change", e => {
+  try { localStorage.setItem("logax-store-link", e.target.value.trim()); } catch (err) {}
+});
+
+function el(tag, attrs = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v;
+    else if (k === "text") n.textContent = v;
+    else n.setAttribute(k, v);
+  }
+  kids.flat().forEach(k => k && n.append(k));
+  return n;
+}
+
+function renderTabs() {
+  tabsEl.replaceChildren(...TOOLS.map(t => {
+    const b = el("button", { type: "button", "aria-selected": String(t === activeTool), text: t.name });
+    b.addEventListener("click", () => { activeTool = t; renderTabs(); renderTool(); });
+    return b;
+  }));
+}
+
+function renderField(tool, f) {
+  const fid = `${tool.id}-${f.id}`;
+  const opts = typeof f.options === "function" ? f.options() : f.options;
+  if (f.type === "chips") {
+    const fs = el("fieldset", { class: "field" }, el("legend", { text: f.label }));
+    const wrap = el("div", { class: "chips" });
+    opts.forEach((o, i) => {
+      const input = el("input", { type: "radio", name: fid, id: `${fid}-${i}`, value: o });
+      if (o === (f.value || opts[0])) input.checked = true;
+      wrap.append(el("label", { for: `${fid}-${i}` }, input, o));
+    });
+    fs.append(wrap);
+    return fs;
+  }
+  const box = el("div", { class: "field" }, el("label", { for: fid, text: f.label }));
+  let input;
+  if (f.type === "select") {
+    input = el("select", { id: fid });
+    opts.forEach(o => input.append(el("option", { value: o, text: o })));
+  } else if (f.type === "textarea") {
+    input = el("textarea", { id: fid, placeholder: f.placeholder || "" });
+  } else {
+    input = el("input", { type: "text", id: fid, placeholder: f.placeholder || "" });
+  }
+  box.append(input);
+  if (f.hint) box.append(el("span", { class: "hint", text: f.hint }));
+  return box;
+}
+
+function readValues(tool) {
+  const v = {};
+  tool.fields.forEach(f => {
+    const fid = `${tool.id}-${f.id}`;
+    if (f.type === "chips") {
+      const c = document.querySelector(`input[name="${fid}"]:checked`);
+      v[f.id] = c ? c.value : "";
+    } else {
+      v[f.id] = document.getElementById(fid).value.trim();
+    }
+  });
+  return v;
+}
+
+function renderCards(container, items, isExample) {
+  container.replaceChildren(el("h3", { text: isExample ? "Example (yours will appear here)" : "Your posts" }));
+  items.forEach(item => {
+    const full = [item.text, item.hashtags].filter(Boolean).join("\n\n");
+    const copy = el("button", { type: "button", class: "ghost", text: "Copy" });
+    copy.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(full); copy.textContent = "Copied"; }
+      catch (e) { copy.textContent = "Select the text to copy"; }
+      setTimeout(() => (copy.textContent = "Copy"), 2000);
+    });
+    container.append(el("article", { class: "card" + (isExample ? " example" : "") },
+      el("div", { class: "meta" }, el("span", { class: "tag", text: item.label || "Post" }), copy),
+      el("p", { class: "text", text: item.text || "" }),
+      item.hashtags ? el("p", { class: "tags", text: item.hashtags }) : null
+    ));
+  });
+}
+
+function renderTool() {
+  const t = activeTool;
+  const form = el("form", { class: "panel", novalidate: "" },
+    el("h2", { text: t.title }),
+    el("p", { class: "lead", text: t.lead }),
+    t.fields.map(f => renderField(t, f))
+  );
+  const go = el("button", { type: "submit", class: "primary", text: t.button });
+  const status = el("p", { class: "status", role: "status" });
+  form.append(go, status);
+  const results = el("div", { class: "results" });
+  renderCards(results, t.example, true);
+
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    go.disabled = true;
+    try {
+      const items = await runAgents(t.buildPrompt(readValues(t)), msg => (status.textContent = msg));
+      renderCards(results, items, false);
+      status.textContent = "Done. Tap Copy on the one you like.";
+    } catch (err) {
+      if (err && err.code === "no_ai") { noticeEl.hidden = false; status.textContent = "The AI isn't running. Open the hub with the desktop shortcut and try again."; }
+      else if (err && err.code === "no_model") status.textContent = `The AI model "${aiModel()}" isn't installed. Run the LOGAX setup again, or check the model name in Store settings.`;
+      else if (err && err.code === "not_granted") { noticeEl.hidden = false; status.textContent = "AI access wasn't allowed. Allow it when asked, then try again."; }
+      else if (err && err.code === "rate_limited") status.textContent = "Too many requests. Wait a minute and try again.";
+      else status.textContent = "Something went wrong writing the posts. Try again.";
+    } finally { go.disabled = false; }
+  });
+
+  areaEl.replaceChildren(el("div", { class: "tool" }, form, results));
+}
+
+/* ============================================================
+   AI ENGINE + AGENTS
+   On claude.ai the hub uses Claude. Opened from the desktop
+   shortcut on a PC, it uses the local AI (Ollama), free.
+   Every request goes through two agents:
+     1. Writer: writes the posts.
+     2. Checker: edits them so they follow the rules.
+   Then a final safety pass in code fixes anything left over.
+   ============================================================ */
+const POSTS_SCHEMA = {
+  type: "object",
+  properties: {
+    posts: { type: "array", items: { type: "object",
+      properties: { label: { type: "string" }, text: { type: "string" }, hashtags: { type: "string" } },
+      required: ["label", "text", "hashtags"] } }
+  },
+  required: ["posts"]
+};
+const JSON_SHAPE = "Return only JSON in exactly this shape: {\"posts\": [{\"label\": \"...\", \"text\": \"...\", \"hashtags\": \"...\"}]}";
+const engineLine = document.getElementById("ai-engine-line");
+let engine = "local"; // "claude" or "local"
+
+function aiModel() { return document.getElementById("ai-model").value.trim() || "llama3.1:8b"; }
+function aiAddress() { return (document.getElementById("ai-address").value.trim() || "http://localhost:11434").replace(/\/+$/, ""); }
+["ai-model", "ai-address"].forEach(id => {
+  const input = document.getElementById(id);
+  try { const s = localStorage.getItem("logax-" + id); if (s) input.value = s; } catch (e) {}
+  input.addEventListener("change", () => { try { localStorage.setItem("logax-" + id, input.value.trim()); } catch (e) {} checkLocalAI(); });
+});
+
+function toPosts(out) {
+  const list = Array.isArray(out) ? out : (out && out.posts) || [];
+  return list.filter(p => p && p.text).map(p => ({ label: String(p.label || "Post"), text: String(p.text), hashtags: String(p.hashtags || "") }));
+}
+
+async function localChat(prompt) {
+  let res;
+  try {
+    res = await fetch(aiAddress() + "/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: aiModel(), stream: false, format: POSTS_SCHEMA,
+        options: { temperature: 0.8 }, messages: [{ role: "user", content: prompt + "\n\n" + JSON_SHAPE }] })
+    });
+  } catch (e) { throw { code: "no_ai" }; }
+  if (res.status === 404) throw { code: "no_model" };
+  if (!res.ok) throw { code: "error" };
+  const data = await res.json();
+  let text = (data.message && data.message.content) || "";
+  text = text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+  const start = text.indexOf("{"), end = text.lastIndexOf("}");
+  return JSON.parse(start >= 0 ? text.slice(start, end + 1) : text);
+}
+
+async function askAI(prompt) {
+  if (engine === "claude") return sampleFn.json(prompt + "\n\n" + JSON_SHAPE);
+  return localChat(prompt);
+}
+
+const BANNED = ["elevate", "unleash", "look no further", "whether you're", "must-have", "game-changer", "next level", "in today's world", "embrace", "loved ones", "perfect gift", "thoughtful gift", "unique gift", "gift shopping dilemma", "look and feel", "cherish"];
+
+function checkerPrompt(writerPrompt, posts) {
+  return [
+    "You are a careful editor for a small gift shop's social media. Below are the instructions the writer was given, then the writer's drafts.",
+    "Fix every draft so it follows ALL the instructions. Keep the same format (scripts stay scripts, headings stay the same). Keep what's good; only change what breaks a rule or sounds like a robot or an ad agency.",
+    "Check especially: no dashes of any kind, no AI or robot mentions, none of these words: " + BANNED.join(", ") + ", no invented prices, sales, reviews or stories, the store link is included exactly, and it sounds like a real small shop owner.",
+    "",
+    "WRITER INSTRUCTIONS:",
+    writerPrompt,
+    "",
+    "DRAFTS:",
+    JSON.stringify({ posts }, null, 1)
+  ].join("\n");
+}
+
+function finalPass(posts) {
+  const link = storeLink();
+  return posts.map(p => {
+    let text = p.text
+      .replace(/\s*[—–]\s*/g, ", ")
+      .replace(/ - /g, ", ")
+      .replace(/\[(link|your link|store link|link to your store|your store)\]/gi, link);
+    // Lay out video scripts: each heading and each numbered shot on its own line
+    const HEAD = /\s*\b(HOOK(?:\s*\([^)]*\))?|SHOTS(?:\s*\([^)]*\))?|TEXT ON SCREEN(?:\s*\([^)]*\))?|SOUND|AUDIO|CAPTION)\s*:\s*/g;
+    if (/\bHOOK\b[^:]*:/.test(text)) {
+      text = text.replace(HEAD, (m, h) => "\n\n" + h + ":\n").replace(/^\n+/, "");
+      text = text.replace(/(SHOTS[^:]*:\n)([\s\S]*?)(?=\n\n[A-Z ]+[^:\n]*:\n|$)/, (m, h, body) =>
+        h + body.replace(/,?\s+(?=\d+\.\s)/g, "\n").trim());
+    }
+    // Drop quote marks wrapped around whole lines
+    text = text.split("\n").map(l => l.replace(/^(\s*)['"‘“]([^\n]*?)['"’”](?=\s|$)/, "$1$2")).join("\n");
+    // Hashtags live in their own box, not in the text
+    const tags = (p.hashtags.match(/#[\w]+/g) || []).concat(text.match(/#[\w]+/g) || []);
+    text = text.replace(/[ \t]*#[\w]+/g, "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+    if (!text.includes(link)) text = text.trimEnd() + "\n" + link;
+    const hashtags = [...new Set(tags.map(t => t.toLowerCase()))].join(" ");
+    return { label: p.label.replace(/\s*[—–]\s*/g, ": "), text, hashtags };
+  });
+}
+
+async function runAgents(prompt, say) {
+  if (engine === "claude" && !sampleFn) throw { code: "no_ai" };
+  say(engine === "local" ? "Writer agent is drafting your posts… (local AI can take up to a minute)" : "Writer agent is drafting your posts…");
+  const drafts = toPosts(await askAI(prompt));
+  if (!drafts.length) throw { code: "error" };
+  say("Checker agent is reviewing them…");
+  let checked = drafts;
+  try {
+    const fixed = toPosts(await askAI(checkerPrompt(prompt, drafts)));
+    if (fixed.length) checked = fixed;
+  } catch (e) { /* if the checker fails, keep the drafts and rely on the final pass */ }
+  // Fix-up: any post that still uses a banned word gets one quick rewrite
+  const hasBanned = p => BANNED.filter(w => (p.text + " " + p.label).toLowerCase().includes(w));
+  for (let i = 0; i < checked.length; i++) {
+    const found = hasBanned(checked[i]);
+    if (!found.length) continue;
+    say("Checker agent is polishing post " + (i + 1) + "…");
+    try {
+      const redo = toPosts(await askAI([
+        "Rewrite this social media post so it does not use these words or phrases: " + found.join(", ") + ".",
+        "Keep everything else the same: same format, same store link, same meaning, same casual small shop voice. No dashes.",
+        JSON.stringify({ posts: [checked[i]] })
+      ].join("\n")));
+      if (redo.length && !hasBanned(redo[0]).length) checked[i] = redo[0];
+    } catch (e) {}
+  }
+  return finalPass(checked);
+}
+
+async function checkLocalAI() {
+  if (engine !== "local") return;
+  try {
+    const res = await fetch(aiAddress() + "/api/tags");
+    const data = await res.json();
+    const names = (data.models || []).map(m => m.name);
+    const has = names.some(n => n === aiModel() || n === aiModel() + ":latest");
+    noticeEl.hidden = true;
+    engineLine.textContent = has
+      ? `Using your free local AI (${aiModel()}).`
+      : `The local AI is running, but the model "${aiModel()}" isn't installed. Installed: ${names.join(", ") || "none"}.`;
+  } catch (e) {
+    noticeEl.hidden = false;
+    engineLine.textContent = "Local AI not found at " + aiAddress() + ".";
+  }
+}
+
+async function loadLocalConfig() {
+  if (!/^https?:$/.test(location.protocol) || /claude\.ai$/.test(location.hostname)) return;
+  try {
+    const cfg = await (await fetch("hub-config.json", { cache: "no-store" })).json();
+    const m = document.getElementById("ai-model");
+    let saved = null; try { saved = localStorage.getItem("logax-ai-model"); } catch (e) {}
+    if (cfg.model && !saved) m.value = cfg.model;
+  } catch (e) {}
+}
+
+renderTabs();
+renderTool();
+
+if (window.claude && typeof window.claude.use === "function") {
+  engine = "claude";
+  engineLine.textContent = "Using Claude (this page is open on claude.ai).";
+  window.claude.use("sample").then(s => { sampleFn = s; if (!s) { engine = "local"; checkLocalAI(); } }).catch(() => { engine = "local"; checkLocalAI(); });
+} else {
+  loadLocalConfig().then(checkLocalAI);
+}
+</script>
+</body>
+</html>
