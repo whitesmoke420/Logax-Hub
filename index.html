@@ -168,7 +168,7 @@ p.count { margin: -6px 0 0; }
 <header class="top">
   <div class="top-inner">
     <p class="wordmark">LOGAX<span>HUB</span></p>
-    <small>Your tools for running the store. Built by SiteSwift. <span class="ver">Version 1.5</span></small>
+    <small>Your tools for running the store. Built by SiteSwift. <span class="ver">Version 1.6</span></small>
   </div>
 </header>
 
@@ -365,8 +365,9 @@ const TOOLS = [
         `- Every one must include the store link exactly as written: ${storeLink()}`,
         "- Never use placeholders like [link] or [your store]. Never invent prices, sales, reviews or shipping promises that aren't in the store facts.",
         "- At most 1 or 2 emoji, and some can have none.",
+        isVideo ? "- In SHOTS, only film the product, his hands, a table, a gift bag, his phone or the store website. No people wearing it, no models, no kids." : "",
         "",
-        "Answer with only a JSON array of 3 objects: [{\"label\": short angle name, \"text\": the full post or script, \"hashtags\": hashtags as one string, or empty}]"
+        "Each post has: label (a 2 to 4 word name for its angle), text (the full post" + (isVideo ? " or script" : "") + "), hashtags (one string, or empty)."
       ].filter(Boolean).join("\n");
     }
   },
@@ -698,7 +699,22 @@ const FORMATS = {
     normalize: p => p && p.text ? { label: String(p.label || "Post"), text: String(p.text), hashtags: String(p.hashtags || "") } : null,
     toAI: p => p,
     words: p => p.text + " " + p.label,
-    problems: () => [],
+    problems: p => {
+      const out = [];
+      const v = runValues, t = p.text;
+      const video = (v.platform === "TikTok" || v.platform === "Instagram Reel") && v.need !== "Just the caption";
+      if (video && !(/HOOK/.test(t) && /SHOTS/.test(t) && /CAPTION/.test(t)))
+        out.push("format it as a video script with the headings HOOK, SHOTS, TEXT ON SCREEN, " + (v.platform === "TikTok" ? "SOUND" : "AUDIO") + " and CAPTION, each on its own line");
+      if (video) {
+        const shots = (t.match(/SHOTS[\s\S]*?(?=TEXT ON SCREEN|SOUND|AUDIO|CAPTION|$)/) || [""])[0];
+        if (AD_PEOPLE.test(shots)) out.push("in SHOTS only film the product, his hands, a table, a gift bag or his phone, no people wearing it, models or kids");
+      }
+      if (/\b[A-Z]{4,}\b/.test(t.replace(/\b(HOOK|SHOTS|TEXT ON SCREEN|SOUND|AUDIO|CAPTION|POV)\b/g, ""))) out.push("remove words written in ALL CAPS");
+      if (/#(fyp|foryou|foryoupage)\b/i.test(t + " " + p.hashtags)) out.push("don't use #fyp or #foryou");
+      if (!v.extra && /(\d+\s*%|percent off|\bpromo code\b|discount code|\bcoupon\b)/i.test(t)) out.push("remove the discount, no offer was given");
+      if (deadlinePassed() && /december 10|dec\.? 10/i.test(t)) out.push("the December 10 Christmas deadline has passed, don't mention it");
+      return out;
+    },
     checks: () => "Check especially: no dashes of any kind, no AI or robot mentions, none of these words: " + BANNED.join(", ") + ", no invented prices, sales, reviews or stories, the store link is included exactly, and it sounds like a real small shop owner.",
     final: items => finalPass(items),
     same: (a, b) => a.text === b.text && a.hashtags === b.hashtags
@@ -846,6 +862,31 @@ function finalAdPass(ads) {
     if (picture && !/[.!?]$/.test(picture)) picture += ".";
     return { label: a.label.replace(/\s*[—–]\s*/g, ": "), primaryText: text, headline, description,
       button: a.button === "Get offer" && !runValues.extra ? "Shop now" : a.button, picture };
+  });
+}
+
+function finalPass(posts) {
+  const link = storeLink();
+  return posts.map(p => {
+    let text = p.text
+      .replace(/\s*[—–]\s*/g, ", ")
+      .replace(/ - /g, ", ")
+      .replace(/\[(link|your link|store link|link to your store|your store)\]/gi, link);
+    // Lay out video scripts: each heading and each numbered shot on its own line
+    const HEAD = /\s*\b(HOOK(?:\s*\([^)]*\))?|SHOTS(?:\s*\([^)]*\))?|TEXT ON SCREEN(?:\s*\([^)]*\))?|SOUND|AUDIO|CAPTION)\s*:\s*/g;
+    if (/\bHOOK\b[^:]*:/.test(text)) {
+      text = text.replace(HEAD, (m, h) => "\n\n" + h + ":\n").replace(/^\n+/, "");
+      text = text.replace(/(SHOTS[^:]*:\n)([\s\S]*?)(?=\n\n[A-Z ]+[^:\n]*:\n|$)/, (m, h, body) =>
+        h + body.replace(/,?\s+(?=\d+\.\s)/g, "\n").trim());
+    }
+    // Drop quote marks wrapped around whole lines
+    text = text.split("\n").map(l => l.replace(/^(\s*)['"‘“]([^\n]*?)['"’”](?=\s|$)/, "$1$2")).join("\n");
+    // Hashtags live in their own box, not in the text
+    const tags = (p.hashtags.match(/#[\w]+/g) || []).concat(text.match(/#[\w]+/g) || []);
+    text = text.replace(/[ \t]*#[\w]+/g, "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+    if (!text.includes(link)) text = text.trimEnd() + "\n" + link;
+    const hashtags = [...new Set(tags.map(t => t.toLowerCase()))].join(" ");
+    return { label: p.label.replace(/\s*[—–]\s*/g, ": "), text, hashtags };
   });
 }
 
