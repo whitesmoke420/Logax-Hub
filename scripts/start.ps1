@@ -31,7 +31,7 @@ try {
         foreach ($f in $files) {
             try {
                 $tmp = Join-Path $env:TEMP ("logax-" + ($f.Name -replace '/', '-'))
-                Invoke-WebRequest ($base + $f.Name) -UseBasicParsing -OutFile $tmp -TimeoutSec 15
+                Invoke-WebRequest ($base + $f.Name + "?v=" + [DateTime]::UtcNow.Ticks) -UseBasicParsing -OutFile $tmp -TimeoutSec 15 -Headers @{ "Cache-Control" = "no-cache" }
                 $text = Get-Content $tmp -Raw
                 if ((Get-Item $tmp).Length -gt 500 -and $text -match "LOGAX" -and $text.Contains($f.Check)) {
                     Copy-Item $tmp (Join-Path $HubDir ($f.Name -replace '/', '\')) -Force
