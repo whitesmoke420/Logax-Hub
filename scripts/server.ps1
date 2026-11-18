@@ -80,6 +80,28 @@ function Invoke-Shop($cfg, [string]$json) {
     }
 }
 
+# Pass the hub's AI requests to the local AI (Ollama) on this PC, so the page
+# only ever talks to this server.
+$AiBase = "http://127.0.0.1:11434"
+function Send-Ai($res, [string]$method, [string]$path, [string]$body) {
+    try {
+        if ($method -eq "GET") {
+            $r = Invoke-WebRequest -Uri ($AiBase + $path) -UseBasicParsing -TimeoutSec 10
+        } else {
+            $r = Invoke-WebRequest -Method Post -Uri ($AiBase + $path) -UseBasicParsing -TimeoutSec 900 -ContentType "application/json; charset=utf-8" -Body $utf8.GetBytes($body)
+        }
+        $stream = $r.RawContentStream
+        $stream.Position = 0
+        Send-Text $res 200 "application/json; charset=utf-8" ((New-Object System.IO.StreamReader($stream, $utf8)).ReadToEnd())
+    } catch {
+        $status = 0
+        if ($_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode }
+        if ($status -eq 404) { Send-Json $res 404 @{ error = "no_model" } }
+        elseif ($status -gt 0) { Send-Json $res 502 @{ error = "ai_error" } }
+        else { Send-Json $res 502 @{ error = "no_ai" } }
+    }
+}
+
 function Handle-Api($ctx, [string]$name) {
     $req = $ctx.Request; $res = $ctx.Response
     # Only the hub page itself may use these. Other websites are turned away.
@@ -122,6 +144,8 @@ function Handle-Api($ctx, [string]$name) {
             try { Send-Text $res 200 "application/json; charset=utf-8" (Invoke-Shop $cfg $json) }
             catch { Send-Json $res 502 @{ error = "shopify_unreachable" } }
         }
+        "api/ai/tags" { Send-Ai $res "GET" "/api/tags" $null }
+        "api/ai/chat" { Send-Ai $res "POST" "/api/chat" (Read-Body $req) }
         default { Send-Json $res 404 @{ error = "Not found." } }
     }
 }

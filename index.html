@@ -168,7 +168,7 @@ p.count { margin: -6px 0 0; }
 <header class="top">
   <div class="top-inner">
     <p class="wordmark">LOGAX<span>HUB</span></p>
-    <small>Your tools for running the store. Built by SiteSwift. <span class="ver">Version 1.4</span></small>
+    <small>Your tools for running the store. Built by SiteSwift. <span class="ver">Version 1.5</span></small>
   </div>
 </header>
 
@@ -233,11 +233,16 @@ function storeLink() {
   const v = document.getElementById("store-link").value.trim();
   return v || "https://logax-sse4610z.myshopify.com";
 }
+// True once the Christmas order deadline (e.g. "December 10") has passed this year.
+function deadlinePassed() {
+  const d = new Date(STORE.christmasDeadline + " " + new Date().getFullYear() + " 23:59");
+  return !isNaN(d) && Date.now() > d.getTime() && new Date().getMonth() === 11;
+}
 function storeFactsText() {
   return [
     `Store: ${STORE.name}. ${STORE.pitch}`,
     `Audience: ${STORE.audience}`,
-    `Order by ${STORE.christmasDeadline} for Christmas delivery.`,
+    deadlinePassed() ? `The ${STORE.christmasDeadline} Christmas order deadline has passed, so don't promise Christmas delivery.` : `Order by ${STORE.christmasDeadline} for Christmas delivery.`,
     `Store link: ${storeLink()}`,
     "Products:",
     ...storeProducts().map(p => `- ${p.name} (${p.price}): ${p.details}`)
@@ -393,49 +398,60 @@ const TOOLS = [
     ],
     buildPrompt: v => {
       const stories = v.place === "Stories & Reels";
-      const goalHint = {
-        "Sell a product": "Make people want this product as a gift and tap the button to shop.",
-        "Christmas deadline": `The reason to act now is the real deadline: order by ${STORE.christmasDeadline} for Christmas delivery. Friendly, not pushy.`,
-        "Sale or code": "Lead with the offer written under \"Offer\". If no offer is given, don't invent one; write a normal shopping ad instead.",
-        "Bring back visitors": "This ad is shown to people who already looked at the store. Give a warm, low pressure reminder of why it makes a great gift. Never say or hint that you saw them, know they visited, or know anything about them."
-      }[v.goal] || "";
+      const late = deadlinePassed();
+      const date = STORE.christmasDeadline;
+      const what = v.product === "The whole store" ? "the shop's personalized gifts" : v.product;
+      const isOrnament = /ornament/i.test(v.product);
+      // A worked example (for a different product) shows the small local AI the style far better than rules do
+      const example = isOrnament
+        ? { label: "Her name, front and center", line1: "Any name you want, printed on a soft fleece hoodie.", line2: "Each one is made to order, sizes S to 3XL.", line3: late ? "A cozy gift she'll wear all winter." : `Order by ${date} to have it for Christmas.`,
+            headline: "A hoodie with her name on it", description: "Made to order", button: "Shop now", picture: "The hoodie folded on a bed with the name facing the camera, soft window light." }
+        : { label: "Whole family", line1: "Everyone's name on one ornament, plus the year.", line2: "It's made to order and comes ready to hang.", line3: late ? "A keepsake for the tree every year." : `Order by ${date} to have it for Christmas.`,
+            headline: "Your family's names on the tree", description: "Made to order", button: "Shop now", picture: "Close up of the ornament hanging on a lit Christmas tree with the names facing the camera." };
+      const pictures = isOrnament
+        ? "the ornament hanging on a lit tree with the names showing, the ornament in a gift box, his hand holding it up to the camera, a short phone video turning it to show the names"
+        : v.product === "The whole store"
+          ? "a few products laid out together on a table, a hoodie and an ornament in a gift bag, his hands holding a product up to the camera"
+          : "the product folded on a bed or table with the name showing, the product in a gift bag or box, his hands holding it up to the camera, a short phone video unfolding it to show the name";
+      const deadlineLine = late ? "" : `, with the ${date} date`;
+      const plan = {
+        "Sell a product": ["Who it's for: a gift for mom, grandma, a sister or a best friend.", "The product itself: the name on it, how it feels, made to order.", "Why it makes a good gift: personal, made just for them."],
+        "Christmas deadline": late
+          ? ["Who it's for: a gift for mom, grandma, a sister or a best friend.", "The product itself: the name on it, how it feels, made to order.", "A cozy winter gift that's personal."]
+          : [`Who it's for: a gift for mom, grandma, a sister or a best friend${deadlineLine}.`, `The product itself: the name on it, how it feels, made to order${deadlineLine}.`, `The date first: order by ${date} to have it for Christmas.`],
+        "Sale or code": ["The offer first, exactly as written below.", "The product itself, then the offer.", "Who it's for, then the offer."],
+        "Bring back visitors": ["A friendly reminder of what makes the product nice.", "Who it's for: a gift for mom, grandma, a sister or a best friend.", late ? "Made to order, just for them." : `Order by ${date} to have it for Christmas.`]
+      }[v.goal] || [];
       return [
-        "You write paid Facebook and Instagram ads for a small online gift shop.",
+        `You write paid ${stories ? "Stories and Reels" : "feed"} ads for Facebook and Instagram for ${STORE.name}, a small family gift shop.`,
         storeFactsText(),
         `Today's date: ${new Date().toDateString()}.`,
         "",
-        `Write 3 different ads for: ${v.product}.`,
-        `Goal: ${v.goal}. ${goalHint}`,
-        `Feel: ${v.angle}.`,
-        `Placement: ${v.place}.`,
-        v.extra ? `Offer: ${v.extra}` : "Offer: none. Don't mention any discount, sale or code.",
+        `Write 3 ads for: ${what}.`,
+        `Feel: ${v.angle.toLowerCase()}.`,
+        v.extra ? `Offer: ${v.extra}. Use it exactly as written.` : "Offer: none. Don't mention any discount, sale or code.",
+        v.goal === "Bring back visitors" ? "These ads go to people who already looked at the store. Never say or hint that you saw them or know they visited." : "",
         "",
-        "Each ad has these parts:",
+        "Here is one good ad for a different product, so you can see the style. Write new words, don't copy it:",
+        JSON.stringify(example),
+        "",
+        "Each ad:",
         stories
-          ? "- primaryText: 1 or 2 short lines, under 125 characters total. Stories and Reels show very little text."
-          : "- primaryText: 2 to 4 short lines. The first line must hook people on its own and be under 125 characters, because Facebook cuts the rest off behind \"See more\".",
-        "- headline: under 40 characters. Says what it is or why to buy.",
-        "- description: under 30 characters. A small extra detail, like \"Made to order\" or \"Sizes S to 3XL\".",
-        "- button: one of Shop now, Order now, Get offer, Learn more. Use Get offer only when there is an offer.",
-        stories
-          ? "- picture: a vertical 6 to 15 second phone video idea he can film himself with the real product. Say what happens in it."
-          : "- picture: a photo or short video idea he can make himself with the real product. Say what's in the shot.",
-        "- label: a 2 to 4 word name for the ad's angle.",
+          ? "- line1, line2: one short sentence each, the ad's main text. Stories show very little, so keep both short. line3 must be empty."
+          : "- line1, line2, line3: the ad's main text, one short sentence each. line1 grabs attention on its own. line3 can be empty.",
+        "- Be plain and specific about the product: the name on it, what it's made of, made to order, sizes. Write like the shop owner, not an ad agency.",
+        "- headline: under 40 characters.",
+        "- description: under 30 characters.",
+        "- button: " + (v.extra ? "Get offer, Shop now or Order now." : "Shop now or Order now."),
+        `- picture: pick one of these and describe it in one sentence: ${pictures}. ${stories ? "Make it a vertical phone video, 6 to 15 seconds." : ""} No people wearing it, no models, no kids, no smiling faces.`,
+        "- label: 2 to 4 words.",
         "",
-        "Make the 3 ads genuinely different angles so he can test them, for example one about who it's for, one about the product itself, one about timing.",
+        "The 3 ads:",
+        ...plan.map((x, i) => (i + 1) + ". " + x),
         "",
-        "Ad rules (Facebook and Instagram are strict, so follow every one):",
-        HUMAN_VOICE,
-        "- Never assert or imply things about the person seeing the ad: no \"Are you a mom?\", \"other grandmas like you\", \"you've been stressed\". Talk about the gift and who it's for instead (\"a gift for mom\" is fine).",
-        "- No made up urgency or scarcity like \"only 3 left\" or \"ends tonight\". Only the real Christmas deadline or an offer written above.",
-        "- No reviews, ratings, \"best seller\", \"#1\", \"customers love\" or numbers that aren't in the store facts.",
-        "- No words in ALL CAPS, no \"!!!\", at most 1 emoji per ad, no hashtags.",
-        "- Don't mention Facebook, Instagram or Meta in the ad.",
-        "- Don't put the store link in the text. It goes in the website box.",
-        "- Pictures must be real photos or videos of the real products. No stock photos, no models he doesn't have, no fake before and after.",
-        "",
-        "Answer with only JSON."
-      ].filter(Boolean).join("\n");
+        "Never use: dashes, ALL CAPS, hashtags, the store link, more than 1 emoji, or these words: " + AD_BANNED.concat(BANNED).join(", ") + ".",
+        "Never talk about the reader (\"Are you a mom?\", \"you deserve\"). No reviews, ratings, \"best seller\", made up stories or numbers. Never mention AI, Facebook, Instagram or Meta."
+      ].filter(x => x !== "").join("\n").replace(/\n(?=Here is|Each ad:|The 3 ads:|Never use:)/g, "\n\n");
     }
   }
 ];
@@ -613,6 +629,7 @@ function renderTool() {
     go.disabled = true;
     try {
       const values = readValues(t);
+      runValues = values;
       runTitle = t.runTitle ? t.runTitle(values) : t.name;
       const items = await runAgents(t.buildPrompt(values), msg => (status.textContent = msg), FORMATS[t.output || "posts"]);
       (t.output === "ads" ? renderAdCards : renderCards)(results, items, false);
@@ -654,15 +671,23 @@ const ADS_SCHEMA = {
   type: "object",
   properties: {
     ads: { type: "array", items: { type: "object",
-      properties: { label: { type: "string" }, primaryText: { type: "string" }, headline: { type: "string" },
-        description: { type: "string" }, button: { type: "string", enum: ["Shop now", "Order now", "Get offer", "Learn more"] },
-        picture: { type: "string" } },
-      required: ["label", "primaryText", "headline", "description", "button", "picture"] } }
+      properties: { label: { type: "string" }, line1: { type: "string" }, line2: { type: "string" }, line3: { type: "string" },
+        headline: { type: "string" }, description: { type: "string" },
+        button: { type: "string", enum: ["Shop now", "Order now", "Get offer", "Learn more"] }, picture: { type: "string" } },
+      required: ["label", "line1", "line2", "line3", "headline", "description", "button", "picture"] } }
   },
   required: ["ads"]
 };
 const AD_LIMITS = { headline: 40, description: 30, hook: 125 };
 const AD_BUTTONS = ["Shop now", "Order now", "Get offer", "Learn more"];
+const AD_BANNED = ["last chance", "hurry", "don't miss", "limited", "special someone", "show you care", "gift of love", "thoughtful", "unique", "you deserve"];
+const AD_PEOPLE = /\b(wearing|wears|model|models|child|children|kid|kids|woman|women|man|men|girl|girls|boy|boys|smil\w*|person|people|hugging|hugs)\b/i;
+let runValues = {};
+function adLine(t) {
+  t = String(t || "").replace(/\s+/g, " ").trim();
+  if (t && !/[.!?)"'’”]$/.test(t) && !/\p{Extended_Pictographic}$/u.test(t)) t += ".";
+  return t;
+}
 
 /* Each kind of output (posts, ads) says how the AI should answer and how
    the agents check and tidy it. */
@@ -671,6 +696,7 @@ const FORMATS = {
     key: "posts", noun: "post", schema: POSTS_SCHEMA,
     shape: "Return only JSON in exactly this shape: {\"posts\": [{\"label\": \"...\", \"text\": \"...\", \"hashtags\": \"...\"}]}",
     normalize: p => p && p.text ? { label: String(p.label || "Post"), text: String(p.text), hashtags: String(p.hashtags || "") } : null,
+    toAI: p => p,
     words: p => p.text + " " + p.label,
     problems: () => [],
     checks: () => "Check especially: no dashes of any kind, no AI or robot mentions, none of these words: " + BANNED.join(", ") + ", no invented prices, sales, reviews or stories, the store link is included exactly, and it sounds like a real small shop owner.",
@@ -679,26 +705,39 @@ const FORMATS = {
   },
   ads: {
     key: "ads", noun: "ad", schema: ADS_SCHEMA,
-    shape: "Return only JSON in exactly this shape: {\"ads\": [{\"label\": \"...\", \"primaryText\": \"...\", \"headline\": \"...\", \"description\": \"...\", \"button\": \"Shop now\", \"picture\": \"...\"}]}",
-    normalize: a => a && a.primaryText && a.headline ? {
-      label: String(a.label || "Ad"), primaryText: String(a.primaryText), headline: String(a.headline),
-      description: String(a.description || ""), button: AD_BUTTONS.includes(a.button) ? a.button : "Shop now",
-      picture: String(a.picture || "") } : null,
+    shape: "Return only JSON in exactly this shape: {\"ads\": [{\"label\": \"...\", \"line1\": \"...\", \"line2\": \"...\", \"line3\": \"...\", \"headline\": \"...\", \"description\": \"...\", \"button\": \"Shop now\", \"picture\": \"...\"}]}",
+    normalize: a => {
+      if (!a) return null;
+      const text = a.primaryText ? String(a.primaryText).split("\n").map(adLine).filter(Boolean).join("\n")
+        : [a.line1, a.line2, a.line3].map(adLine).filter(Boolean).join("\n");
+      if (!text || !a.headline) return null;
+      return { label: String(a.label || "Ad"), primaryText: text, headline: String(a.headline).trim(),
+        description: String(a.description || "").trim(), button: AD_BUTTONS.includes(a.button) ? a.button : "Shop now",
+        picture: String(a.picture || "").trim() };
+    },
+    // Back to the shape the AI writes in, for the Checker and Polisher
+    toAI: a => { const l = a.primaryText.split("\n"); return { label: a.label, line1: l[0] || "", line2: l[1] || "", line3: l.slice(2).join(" "), headline: a.headline, description: a.description, button: a.button, picture: a.picture }; },
     words: a => [a.label, a.primaryText, a.headline, a.description].join(" "),
     problems: a => {
       const out = [];
+      const all = (a.primaryText + " " + a.headline + " " + a.description).toLowerCase();
+      AD_BANNED.filter(w => all.includes(w)).forEach(w => out.push("don't use \"" + w + "\""));
       if (a.headline.length > AD_LIMITS.headline) out.push(`the headline is ${a.headline.length} characters, make it under ${AD_LIMITS.headline}`);
       if (a.description.length > AD_LIMITS.description) out.push(`the description is ${a.description.length} characters, make it under ${AD_LIMITS.description}`);
       const first = a.primaryText.split("\n")[0];
-      if (first.length > AD_LIMITS.hook) out.push(`the first line of primaryText is ${first.length} characters, make it under ${AD_LIMITS.hook}`);
+      if (first.length > AD_LIMITS.hook) out.push(`line1 is ${first.length} characters, make it under ${AD_LIMITS.hook}`);
+      if (runValues.place !== "Stories & Reels" && a.primaryText.split("\n").length < 2) out.push("write line1 and line2 as two separate short sentences");
       if (/\b[A-Z]{4,}\b/.test(a.primaryText + " " + a.headline)) out.push("remove words written in ALL CAPS");
+      if (AD_PEOPLE.test(a.picture)) out.push("the picture must show only the product, his hands or the store, no people wearing it, models or kids");
+      if (!runValues.extra && /(\d+\s*%|percent|\bsale\b|\bcode\b|discount|\boff\b\s+(your|orders|everything))/i.test(all)) out.push("remove the discount, there is no offer");
       return out;
     },
     checks: () => [
       "Check especially: no dashes of any kind, no AI or robot mentions, none of these words: " + BANNED.join(", ") + ".",
       "Ad rules: never assert or imply things about the person seeing the ad (no \"Are you a mom?\", no \"we saw you looking\"), no made up urgency or scarcity, no reviews, ratings or \"best seller\" claims, no discount unless it was given as the offer, no ALL CAPS, no hashtags, no store link in the text, no mention of Facebook, Instagram or Meta.",
       `Lengths: headline under ${AD_LIMITS.headline} characters, description under ${AD_LIMITS.description} characters, first line of primaryText under ${AD_LIMITS.hook} characters.`,
-      "The picture idea must use the real product he has, filmed or photographed by him."
+      "The picture idea must show only the real product (and his hands), no people wearing it, models or kids.",
+      "If a draft already follows every rule, return it exactly as it is."
     ].join("\n"),
     final: items => finalAdPass(items),
     same: (a, b) => ["primaryText", "headline", "description", "button", "picture"].every(k => a[k] === b[k])
@@ -713,22 +752,35 @@ function toItems(out, fmt) {
 const engineLine = document.getElementById("ai-engine-line");
 let engine = "local"; // "claude" or "local"
 
+// On the PC the hub's own little server passes AI requests to the local AI,
+// so the page only ever talks to itself. Older launchers don't have this,
+// so the hub falls back to talking to the AI directly.
+let aiViaHub = null;
+async function hubProxyAvailable() {
+  if (aiViaHub !== null) return aiViaHub;
+  if (!/^https?:$/.test(location.protocol) || location.hostname !== "localhost" || aiAddress() !== "http://localhost:11434") return (aiViaHub = false);
+  try { const r = await fetch("api/ai/tags", { cache: "no-store" }); const j = await r.json(); aiViaHub = r.ok || !!(j && j.error); }
+  catch (e) { aiViaHub = false; }
+  return aiViaHub;
+}
+function aiUrl(path) { return aiViaHub ? "api/ai/" + path : aiAddress() + "/api/" + path; }
 function aiModel() { return document.getElementById("ai-model").value.trim() || "llama3.1:8b"; }
 function aiAddress() { return (document.getElementById("ai-address").value.trim() || "http://localhost:11434").replace(/\/+$/, ""); }
 ["ai-model", "ai-address"].forEach(id => {
   const input = document.getElementById(id);
   try { const s = localStorage.getItem("logax-" + id); if (s) input.value = s; } catch (e) {}
-  input.addEventListener("change", () => { try { localStorage.setItem("logax-" + id, input.value.trim()); } catch (e) {} checkLocalAI(); });
+  input.addEventListener("change", () => { try { localStorage.setItem("logax-" + id, input.value.trim()); } catch (e) {} aiViaHub = null; checkLocalAI(); });
 });
 
-async function localChat(prompt, fmt) {
+async function localChat(prompt, fmt, temperature = 0.7) {
   let res;
   try {
-    res = await fetch(aiAddress() + "/api/chat", {
+    await hubProxyAvailable();
+    res = await fetch(aiUrl("chat"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ model: aiModel(), stream: false, format: fmt.schema,
-        options: { temperature: 0.8 }, messages: [{ role: "user", content: prompt + "\n\n" + fmt.shape }] })
+        options: { temperature }, messages: [{ role: "user", content: prompt + "\n\n" + fmt.shape }] })
     });
   } catch (e) { throw { code: "no_ai" }; }
   if (res.status === 404) throw { code: "no_model" };
@@ -740,9 +792,9 @@ async function localChat(prompt, fmt) {
   return JSON.parse(start >= 0 ? text.slice(start, end + 1) : text);
 }
 
-async function askAI(prompt, fmt) {
+async function askAI(prompt, fmt, temperature) {
   if (engine === "claude") return sampleFn.json(prompt + "\n\n" + fmt.shape);
-  return localChat(prompt, fmt);
+  return localChat(prompt, fmt, temperature);
 }
 
 const BANNED = ["elevate", "unleash", "look no further", "whether you're", "must-have", "game-changer", "next level", "in today's world", "embrace", "loved ones", "perfect gift", "thoughtful gift", "unique gift", "gift shopping dilemma", "look and feel", "cherish"];
@@ -757,7 +809,7 @@ function checkerPrompt(writerPrompt, items, fmt) {
     writerPrompt,
     "",
     "DRAFTS:",
-    JSON.stringify({ [fmt.key]: items }, null, 1)
+    JSON.stringify({ [fmt.key]: items.map(fmt.toAI) }, null, 1)
   ].join("\n");
 }
 
@@ -772,42 +824,28 @@ function cleanLine(t) {
 function finalAdPass(ads) {
   const link = storeLink();
   const linkRe = new RegExp("\\s*" + link.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*", "g");
+  const strip = t => cleanLine(t).replace(/\[(link|your link|store link|link to your store|your store)\]/gi, "")
+    .replace(linkRe, " ").replace(/[ \t]*#[\w]+/g, "").replace(/!{2,}/g, "!").replace(/[ \t]{2,}/g, " ").trim();
+  const fit = (t, max) => {               // last resort if the AI couldn't shorten it: cut at a word
+    if (t.length <= max) return t;
+    const cut = t.slice(0, max + 1).replace(/\s+\S*$/, "").replace(/[,;:]$/, "");
+    return cut || t.slice(0, max);
+  };
+  const date = STORE.christmasDeadline;
   return ads.map(a => {
-    const strip = t => cleanLine(t).replace(/\[(link|your link|store link|link to your store|your store)\]/gi, "")
-      .replace(linkRe, " ").replace(/[ \t]*#[\w]+/g, "").replace(/!{2,}/g, "!").replace(/[ \t]{2,}/g, " ").trim();
-    return {
-      label: a.label.replace(/\s*[—–]\s*/g, ": "),
-      primaryText: strip(a.primaryText),
-      headline: strip(a.headline).replace(/\n/g, " ").replace(/[.!]$/, ""),
-      description: strip(a.description).replace(/\n/g, " "),
-      button: a.button,
-      picture: cleanLine(a.picture)
-    };
-  });
-}
-
-function finalPass(posts) {
-  const link = storeLink();
-  return posts.map(p => {
-    let text = p.text
-      .replace(/\s*[—–]\s*/g, ", ")
-      .replace(/ - /g, ", ")
-      .replace(/\[(link|your link|store link|link to your store|your store)\]/gi, link);
-    // Lay out video scripts: each heading and each numbered shot on its own line
-    const HEAD = /\s*\b(HOOK(?:\s*\([^)]*\))?|SHOTS(?:\s*\([^)]*\))?|TEXT ON SCREEN(?:\s*\([^)]*\))?|SOUND|AUDIO|CAPTION)\s*:\s*/g;
-    if (/\bHOOK\b[^:]*:/.test(text)) {
-      text = text.replace(HEAD, (m, h) => "\n\n" + h + ":\n").replace(/^\n+/, "");
-      text = text.replace(/(SHOTS[^:]*:\n)([\s\S]*?)(?=\n\n[A-Z ]+[^:\n]*:\n|$)/, (m, h, body) =>
-        h + body.replace(/,?\s+(?=\d+\.\s)/g, "\n").trim());
-    }
-    // Drop quote marks wrapped around whole lines
-    text = text.split("\n").map(l => l.replace(/^(\s*)['"‘“]([^\n]*?)['"’”](?=\s|$)/, "$1$2")).join("\n");
-    // Hashtags live in their own box, not in the text
-    const tags = (p.hashtags.match(/#[\w]+/g) || []).concat(text.match(/#[\w]+/g) || []);
-    text = text.replace(/[ \t]*#[\w]+/g, "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
-    if (!text.includes(link)) text = text.trimEnd() + "\n" + link;
-    const hashtags = [...new Set(tags.map(t => t.toLowerCase()))].join(" ");
-    return { label: p.label.replace(/\s*[—–]\s*/g, ": "), text, hashtags };
+    let text = strip(a.primaryText);
+    // Christmas deadline ads always carry the real date
+    if (runValues.goal === "Christmas deadline" && !deadlinePassed() && !text.toLowerCase().includes(date.toLowerCase()) && !/\bdec(ember)?\.?\s*10\b/i.test(text))
+      text = text + "\nOrder by " + date + " to have it for Christmas.";
+    let headline = strip(a.headline).replace(/\n/g, " ").replace(/[.!]$/, "");
+    if (headline.length > AD_LIMITS.headline) headline = fit(headline, AD_LIMITS.headline);
+    let description = strip(a.description).replace(/\n/g, " ").replace(/\.$/, "");
+    if (description.length > AD_LIMITS.description) description = "Made to order";
+    let picture = cleanLine(a.picture);
+    picture = picture.charAt(0).toUpperCase() + picture.slice(1);
+    if (picture && !/[.!?]$/.test(picture)) picture += ".";
+    return { label: a.label.replace(/\s*[—–]\s*/g, ": "), primaryText: text, headline, description,
+      button: a.button === "Get offer" && !runValues.extra ? "Shop now" : a.button, picture };
   });
 }
 
@@ -822,25 +860,26 @@ async function runAgents(prompt, say, fmt = FORMATS.posts) {
   if (!drafts.length) throw { code: "error" };
   setAgent("writer", "done", "Wrote " + plural(drafts.length, fmt.noun) + ".");
 
+  const issues = p => [
+    ...BANNED.filter(w => fmt.words(p).toLowerCase().includes(w)).map(w => "don't use the words \"" + w + "\""),
+    ...fmt.problems(p)
+  ];
   setAgent("checker", "working", "Reading every draft…");
   say("Checker agent is reviewing them…");
   let checked = drafts;
   let checkerNote = "Checked " + plural(drafts.length, fmt.noun) + ".";
   try {
-    const fixed = toItems(await askAI(checkerPrompt(prompt, drafts, fmt), fmt), fmt);
+    const fixed = toItems(await askAI(checkerPrompt(prompt, drafts, fmt), fmt, 0.2), fmt);
     if (fixed.length) {
-      checked = fixed;
-      const edited = fixed.filter((p, i) => !drafts[i] || !fmt.same(p, drafts[i])).length;
+      // Keep the Checker's version only where it didn't make things worse
+      checked = drafts.map((d, i) => fixed[i] && issues(fixed[i]).length <= issues(d).length ? fixed[i] : d);
+      const edited = checked.filter((p, i) => !fmt.same(p, drafts[i])).length;
       checkerNote = edited ? "Edited " + edited + " of " + plural(fixed.length, fmt.noun) + "." : (fixed.length === 1 ? "It passed." : "All " + fixed.length + " " + fmt.noun + "s passed.");
     }
   } catch (e) { checkerNote = "Couldn't finish, so the drafts went on to the next step."; }
   setAgent("checker", "done", checkerNote);
 
   // Polisher: anything that still breaks a rule gets one quick rewrite
-  const issues = p => [
-    ...BANNED.filter(w => fmt.words(p).toLowerCase().includes(w)).map(w => "don't use the words \"" + w + "\""),
-    ...fmt.problems(p)
-  ];
   let polished = 0;
   const needs = checked.filter(p => issues(p).length).length;
   if (!needs) setAgent("polisher", "done", "Nothing to fix.");
@@ -853,8 +892,9 @@ async function runAgents(prompt, say, fmt = FORMATS.posts) {
       const redo = toItems(await askAI([
         "Fix this " + fmt.noun + " for a small gift shop. Problems to fix: " + found.join("; ") + ".",
         "Keep everything else the same: same fields, same format, same meaning, same casual small shop voice. No dashes.",
-        JSON.stringify({ [fmt.key]: [checked[i]] })
-      ].join("\n"), fmt), fmt);
+        JSON.stringify({ [fmt.key]: [fmt.toAI(checked[i])] }),
+        fmt.shape
+      ].join("\n"), fmt, 0.3), fmt);
       if (redo.length && issues(redo[0]).length < found.length) { checked[i] = redo[0]; polished++; }
     } catch (e) {}
   }
@@ -1194,7 +1234,9 @@ function renderShopPage() {
 async function checkLocalAI() {
   if (engine !== "local") return;
   try {
-    const res = await fetch(aiAddress() + "/api/tags");
+    await hubProxyAvailable();
+    const res = await fetch(aiUrl("tags"), { cache: "no-store" });
+    if (!res.ok) throw new Error("no ai");
     const data = await res.json();
     const names = (data.models || []).map(m => m.name);
     const has = names.some(n => n === aiModel() || n === aiModel() + ":latest");
