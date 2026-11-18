@@ -116,6 +116,30 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .log time, .log .took { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
 @media (max-width: 620px) { .log li { grid-template-columns: 1fr; gap: 2px; } }
 .empty { color: var(--muted); margin: 0; }
+/* Shopify tab */
+.shop { display: flex; flex-direction: column; gap: 20px; }
+.shop-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.shop-head .lead { margin: 4px 0 0; }
+.stats.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 620px) { .stats.three { grid-template-columns: 1fr; } }
+.stat small { display: block; color: var(--muted); font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 4px; }
+.tablewrap { overflow-x: auto; }
+.ptable { width: 100%; border-collapse: collapse; font-size: 15px; }
+.ptable th { text-align: left; font-size: 13px; color: var(--muted); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 8px 8px 8px 0; border-bottom: 1px solid var(--line); }
+.ptable td { padding: 10px 8px 10px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+.ptable tr:last-child td { border-bottom: 0; }
+.ptable .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stock-low { color: var(--gold); font-weight: 600; }
+.stock-out { color: #B3261E; font-weight: 600; }
+:root[data-theme="dark"] .stock-out { color: #F2B8B5; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .stock-out { color: #F2B8B5; } }
+.steps { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; font-size: 15px; }
+.steps code { font-size: 14px; background: var(--gold-soft); padding: 1px 5px; border-radius: 4px; }
+input[type="password"] { font: inherit; font-size: 16px; color: var(--ink); background: var(--bg); border: 2px solid var(--line); border-radius: 6px; padding: 10px 12px; width: 100%; }
+.err { color: #B3261E; font-size: 15px; margin: 0; }
+:root[data-theme="dark"] .err { color: #F2B8B5; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .err { color: #F2B8B5; } }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 </head>
@@ -123,7 +147,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 <header class="top">
   <div class="top-inner">
     <p class="wordmark">LOGAX<span>HUB</span></p>
-    <small>Your tools for running the store. Built by SiteSwift. <span class="ver">Version 1.2</span></small>
+    <small>Your tools for running the store. Built by SiteSwift. <span class="ver">Version 1.3</span></small>
   </div>
 </header>
 
@@ -195,7 +219,7 @@ function storeFactsText() {
     `Order by ${STORE.christmasDeadline} for Christmas delivery.`,
     `Store link: ${storeLink()}`,
     "Products:",
-    ...STORE.products.map(p => `- ${p.name} (${p.price}): ${p.details}`)
+    ...storeProducts().map(p => `- ${p.name} (${p.price}): ${p.details}`)
   ].join("\n");
 }
 
@@ -218,7 +242,7 @@ const TOOLS = [
     runTitle: v => `${v.platform}: ${v.kind} (${v.product})`,
     fields: [
       { id: "product", label: "Product", type: "select",
-        options: () => [...STORE.products.map(p => p.name), "The whole store"] },
+        options: () => [...storeProducts().map(p => p.name), "The whole store"] },
       { id: "platform", label: "Where will you post it?", type: "chips",
         options: ["TikTok", "Instagram Reel", "Instagram post", "Facebook", "Facebook Marketplace"], value: "TikTok" },
       { id: "need", label: "For TikTok and Reels, what do you need?", type: "chips",
@@ -326,6 +350,7 @@ const TOOLS = [
    APP: you shouldn't need to change anything below this line
    to add a tool.
    ============================================================ */
+TOOLS.push({ id: "shopify", name: "Shopify", render: () => renderShopPage() });
 TOOLS.push({ id: "agents", name: "AI Agents", render: () => renderAgentsPage() });
 const tabsEl = document.getElementById("tabs");
 const areaEl = document.getElementById("tool-area");
@@ -687,6 +712,256 @@ function renderAgentsPage() {
   return el("div", { class: "team" }, head, cards, log);
 }
 
+/* ---------- Shopify tab ----------
+   Reads the store through the little local server (scripts/server.ps1),
+   which holds the Shopify keys. Read only: it never changes the store.
+   Post Writer uses the live, active products and prices when connected. */
+const shop = { checked: false, connected: false, name: "", busy: false, error: "", sales: null, products: null, updated: 0 };
+try {
+  const c = JSON.parse(localStorage.getItem("logax-shop-cache") || "null");
+  if (c) Object.assign(shop, { sales: c.sales, products: c.products, updated: c.updated || 0 });
+} catch (e) {}
+const onLocalHub = () => /^https?:$/.test(location.protocol) && location.hostname === "localhost";
+
+function storeProducts() {
+  const live = (shop.products || []).filter(p => p.status === "ACTIVE");
+  if (!live.length) return STORE.products;
+  return live.map(p => {
+    const known = STORE.products.find(k => k.name.toLowerCase() === p.title.toLowerCase());
+    return { name: p.title, price: p.price, details: known ? known.details : (p.description || "Made to order.") };
+  });
+}
+
+async function shopApi(path, body) {
+  const opts = body === undefined ? { cache: "no-store" } : { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+  const res = await fetch("api/shopify/" + path, opts);
+  let data = {};
+  try { data = await res.json(); } catch (e) {}
+  if (!res.ok) throw { code: data.error || "error" };
+  return data;
+}
+async function shopQuery(query, variables) {
+  const r = await shopApi("graphql", { query, variables: variables || {} });
+  if (r.errors && !r.data) throw { code: "query", detail: r.errors };
+  return r.data;
+}
+function money(amount, currency) {
+  try { return new Intl.NumberFormat(undefined, { style: "currency", currency: currency || "USD" }).format(amount); }
+  catch (e) { return "$" + Number(amount).toFixed(2); }
+}
+
+const ORDERS_Q = `query($q: String!, $after: String) {
+  orders(first: 100, after: $after, query: $q, sortKey: CREATED_AT, reverse: true) {
+    pageInfo { hasNextPage endCursor }
+    nodes { createdAt cancelledAt test
+      totalPriceSet { shopMoney { amount currencyCode } }
+      lineItems(first: 30) { nodes { title quantity } } }
+  }
+}`;
+const PRODUCTS_Q = `query($after: String) {
+  products(first: 100, after: $after, query: "-status:archived", sortKey: TITLE) {
+    pageInfo { hasNextPage endCursor }
+    nodes { title status totalInventory tracksInventory description(truncateAt: 220)
+      priceRangeV2 { minVariantPrice { amount currencyCode } maxVariantPrice { amount currencyCode } } }
+  }
+}`;
+
+async function loadSales() {
+  const day = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+  const today = day(Date.now());
+  const from = n => { const x = new Date(today); x.setDate(x.getDate() - n); return x; };
+  const start30 = from(29), start7 = from(6);
+  const orders = [];
+  let after = null;
+  for (let page = 0; page < 10; page++) {
+    const d = await shopQuery(ORDERS_Q, { q: "created_at:>='" + start30.toISOString() + "'", after });
+    orders.push(...d.orders.nodes);
+    if (!d.orders.pageInfo.hasNextPage) break;
+    after = d.orders.pageInfo.endCursor;
+  }
+  const real = orders.filter(o => !o.cancelledAt && !o.test);
+  let currency = "USD";
+  const sum = since => {
+    const list = real.filter(o => new Date(o.createdAt) >= since);
+    const total = list.reduce((n, o) => { currency = o.totalPriceSet.shopMoney.currencyCode; return n + Number(o.totalPriceSet.shopMoney.amount); }, 0);
+    return { orders: list.length, total };
+  };
+  const periods = { today: sum(today), week: sum(start7), month: sum(start30) };
+  const qty = {};
+  real.forEach(o => o.lineItems.nodes.forEach(li => (qty[li.title] = (qty[li.title] || 0) + li.quantity)));
+  const best = Object.entries(qty).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([title, n]) => ({ title, n }));
+  return { periods, best, currency };
+}
+
+async function loadProducts() {
+  const list = [];
+  let after = null;
+  for (let page = 0; page < 5; page++) {
+    const d = await shopQuery(PRODUCTS_Q, { after });
+    list.push(...d.products.nodes);
+    if (!d.products.pageInfo.hasNextPage) break;
+    after = d.products.pageInfo.endCursor;
+  }
+  return list.map(p => {
+    const lo = p.priceRangeV2.minVariantPrice, hi = p.priceRangeV2.maxVariantPrice;
+    const price = Number(lo.amount) === Number(hi.amount) ? money(lo.amount, lo.currencyCode) : money(lo.amount, lo.currencyCode) + " to " + money(hi.amount, hi.currencyCode);
+    return { title: p.title, status: p.status, price, tracks: p.tracksInventory, stock: p.totalInventory, description: (p.description || "").replace(/\s+/g, " ").trim() };
+  });
+}
+
+function shopRefresh() {
+  if (activeTool && activeTool.id === "shopify") renderTool();
+  // Keep Post Writer's product list in step with the store, keeping what's picked
+  const sel = document.getElementById("post-writer-product");
+  if (sel) {
+    const picked = sel.value;
+    const names = [...storeProducts().map(p => p.name), "The whole store"];
+    if (names.join("|") !== [...sel.options].map(o => o.value).join("|")) {
+      sel.replaceChildren(...names.map(n => el("option", { value: n, text: n })));
+      if (names.includes(picked)) sel.value = picked;
+    }
+  }
+}
+
+async function shopCheck() {
+  if (!onLocalHub()) { shop.checked = true; return; }
+  try {
+    const st = await shopApi("status");
+    shop.connected = !!st.connected; shop.name = st.shop || "";
+  } catch (e) { shop.connected = false; }
+  shop.checked = true;
+  shopRefresh();
+  if (shop.connected && Date.now() - shop.updated > 10 * 60 * 1000) shopLoad();
+}
+
+async function shopLoad() {
+  if (shop.busy) return;
+  shop.busy = true; shop.error = ""; shopRefresh();
+  try {
+    const [products, sales] = await Promise.all([loadProducts(), loadSales()]);
+    Object.assign(shop, { products, sales, updated: Date.now() });
+    try { localStorage.setItem("logax-shop-cache", JSON.stringify({ products, sales, updated: shop.updated })); } catch (e) {}
+  } catch (e) {
+    shop.error = e && e.code === "not_connected" ? "The store isn't connected." :
+      e && e.code === "shopify_unreachable" ? "Couldn't reach Shopify. Check the internet and try Refresh." :
+      "Couldn't load the store info. Try Refresh. If it keeps happening, reconnect the store.";
+  } finally { shop.busy = false; shopRefresh(); }
+}
+
+function renderConnectForm() {
+  const f = el("form", { class: "panel", novalidate: "" },
+    el("h2", { text: "Connect your Shopify store" }),
+    el("p", { class: "lead", text: "Once it's connected you'll see your sales and products here, and Post Writer will always use your real products and prices. The hub can only look at your store. It can't change anything." }),
+    el("ol", { class: "steps" },
+      el("li", { text: "Sign in to the Shopify Dev Dashboard (dev.shopify.com) with the account that owns the store, and create an app called LOGAX Hub." }),
+      el("li", {}, "Give it these permissions: ", el("code", { text: "read_products" }), " ", el("code", { text: "read_orders" }), " ", el("code", { text: "read_inventory" }), ", then release that version."),
+      el("li", { text: "Install the app on your store." }),
+      el("li", { text: "Open the app's settings, copy the Client ID and the Secret, and paste them below." })
+    )
+  );
+  const field = (id, label, type, ph, hint) => {
+    const box = el("div", { class: "field" }, el("label", { for: id, text: label }),
+      el("input", { id, type, placeholder: ph, autocomplete: "off", spellcheck: "false" }));
+    if (hint) box.append(el("span", { class: "hint", text: hint }));
+    return box;
+  };
+  f.append(
+    field("shop-domain", "Store address", "text", "yourstore.myshopify.com", "The .myshopify.com address, even if the store has its own web address."),
+    field("shop-id", "Client ID", "text", ""),
+    field("shop-secret", "Secret", "password", "", "Kept only on this PC. It's never put in posts or sent anywhere except Shopify.")
+  );
+  const go = el("button", { type: "submit", class: "primary", text: "Connect store" });
+  const msg = el("p", { class: "status", role: "status" });
+  f.append(go, msg);
+  f.addEventListener("submit", async e => {
+    e.preventDefault();
+    go.disabled = true; msg.className = "status"; msg.textContent = "Connecting…";
+    try {
+      const r = await shopApi("connect", {
+        shop: document.getElementById("shop-domain").value,
+        clientId: document.getElementById("shop-id").value,
+        clientSecret: document.getElementById("shop-secret").value
+      });
+      if (!r.ok) throw { message: r.error };
+      shop.connected = true; shop.name = r.shop; shop.updated = 0;
+      shopLoad();
+    } catch (err) {
+      msg.className = "err";
+      msg.textContent = (err && err.message) || "Couldn't connect. Check the details and try again.";
+      go.disabled = false;
+    }
+  });
+  return f;
+}
+
+function renderShopPage() {
+  if (!onLocalHub()) {
+    return el("div", { class: "panel" }, el("h2", { text: "Shopify" }),
+      el("p", { class: "lead", text: "The Shopify tab works in the LOGAX Hub app on your PC. Open it from the desktop shortcut." }));
+  }
+  if (!shop.checked) return el("div", { class: "panel" }, el("p", { class: "lead", text: "Checking the store connection…" }));
+  if (!shop.connected) return el("div", { class: "shop" }, renderConnectForm());
+
+  const refresh = el("button", { type: "button", class: "ghost", text: shop.busy ? "Loading…" : "Refresh" });
+  if (shop.busy) refresh.disabled = true;
+  refresh.addEventListener("click", () => shopLoad());
+  const head = el("div", { class: "panel" },
+    el("div", { class: "shop-head" },
+      el("div", {}, el("h2", { text: "Your store" }),
+        el("p", { class: "lead", text: shop.name + (shop.updated ? " · updated " + whenText(shop.updated).replace(/^Today /, "") : "") })),
+      refresh),
+    shop.error ? el("p", { class: "err", role: "alert", text: shop.error }) : null
+  );
+
+  const parts = [head];
+  if (shop.sales) {
+    const c = shop.sales.currency, P = shop.sales.periods;
+    const card = (label, p) => el("div", { class: "stat" }, el("small", { text: label }),
+      el("b", { text: money(p.total, c) }), el("span", { text: plural(p.orders, "order") }));
+    parts.push(el("div", { class: "panel" }, el("h2", { text: "Sales" }),
+      el("div", { class: "stats three" }, card("Today", P.today), card("Last 7 days", P.week), card("Last 30 days", P.month)),
+      shop.sales.best.length
+        ? el("div", {}, el("h3", { class: "kind", text: "Best sellers, last 30 days" }),
+            el("table", { class: "ptable" }, el("tbody", {}, shop.sales.best.map(b =>
+              el("tr", {}, el("td", { text: b.title }), el("td", { class: "num", text: b.n + " sold" }))))))
+        : el("p", { class: "empty", text: "No orders in the last 30 days yet." })
+    ));
+  }
+  if (shop.products) {
+    const stockCell = p => {
+      if (!p.tracks) return el("td", { class: "num", text: "Made to order" });
+      if (p.stock <= 0) return el("td", { class: "num stock-out", text: "Out of stock" });
+      if (p.stock < 5) return el("td", { class: "num stock-low", text: "Low: " + p.stock + " left" });
+      return el("td", { class: "num", text: p.stock + " in stock" });
+    };
+    const active = shop.products.filter(p => p.status === "ACTIVE").length;
+    parts.push(el("div", { class: "panel" }, el("h2", { text: "Products" }),
+      el("p", { class: "lead", text: active
+        ? "Post Writer uses your " + plural(active, "active product") + " and their prices automatically."
+        : "None of your products are active yet, so Post Writer is using its built-in product list for now." }),
+      shop.products.length
+        ? el("div", { class: "tablewrap" }, el("table", { class: "ptable" },
+            el("thead", {}, el("tr", {}, ["Product", "Price", "Stock", "Status"].map(h => el("th", { scope: "col", text: h })))),
+            el("tbody", {}, shop.products.map(p => el("tr", {},
+              el("td", { text: p.title }), el("td", { class: "num", text: p.price }), stockCell(p),
+              el("td", {}, el("span", { class: "pill" + (p.status === "ACTIVE" ? " done" : ""), text: p.status === "ACTIVE" ? "Active" : p.status === "DRAFT" ? "Draft" : p.status.charAt(0) + p.status.slice(1).toLowerCase() })))))))
+        : el("p", { class: "empty", text: "No products yet." })
+    ));
+  } else if (shop.busy) {
+    parts.push(el("div", { class: "panel" }, el("p", { class: "lead", text: "Loading your sales and products…" })));
+  }
+  const off = el("button", { type: "button", class: "ghost", text: "Disconnect store" });
+  off.addEventListener("click", async () => {
+    if (!confirm("Disconnect the store from the hub? You can connect it again any time.")) return;
+    try { await shopApi("disconnect", {}); } catch (e) {}
+    Object.assign(shop, { connected: false, name: "", sales: null, products: null, updated: 0, error: "" });
+    try { localStorage.removeItem("logax-shop-cache"); } catch (e) {}
+    shopRefresh();
+  });
+  parts.push(el("div", { class: "row" }, off));
+  return el("div", { class: "shop" }, parts);
+}
+
 async function checkLocalAI() {
   if (engine !== "local") return;
   try {
@@ -724,6 +999,7 @@ if (window.claude && typeof window.claude.use === "function") {
   window.claude.use("sample").then(s => { sampleFn = s; if (!s) { engine = "local"; checkLocalAI(); } }).catch(() => { engine = "local"; checkLocalAI(); });
 } else {
   loadLocalConfig().then(checkLocalAI);
+  shopCheck();
 }
 </script>
 </body>
