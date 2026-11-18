@@ -168,7 +168,7 @@ p.count { margin: -6px 0 0; }
 <header class="top">
   <div class="top-inner">
     <p class="wordmark">LOGAX<span>HUB</span></p>
-    <small>Your tools for running the store. Built by SiteSwift. <span class="ver">Version 1.6</span></small>
+    <small>Your tools for running the store. Built by SiteSwift. <span class="ver">Version 1.7</span></small>
   </div>
 </header>
 
@@ -226,7 +226,8 @@ const HUMAN_VOICE = [
   "- Avoid words and phrases that sound like marketing robots: elevate, unleash, discover, look no further, whether you're, perfect for any occasion, must-have, game-changer, take it to the next level, embrace, cherish the moments, treat yourself, in today's world, not just a.",
   "- Don't open with a question every time and don't use three-item lists of adjectives. Don't start every line with an emoji.",
   "- Make the 3 posts genuinely different from each other: different openings, lengths and angles (for example one warm note from the owner, one simple announcement, one short and punchy).",
-  "- Never make up customers, reviews, quotes, sales numbers or personal stories that didn't happen. Warm and personal, but true."
+  "- Never make up customers, reviews, quotes, sales numbers or personal stories that didn't happen. Warm and personal, but true.",
+  "- Don't invent what the owner loves, does or feels (no \"I love making gifts for my friends\"). Talk about the product and who it's for."
 ].join("\n");
 
 function storeLink() {
@@ -275,7 +276,7 @@ const TOOLS = [
         options: ["Video plan + caption", "Just the caption"], value: "Video plan + caption",
         hint: "Video plan tells you what to film. Pick \"Just the caption\" if you already have the video." },
       { id: "kind", label: "What kind of post?", type: "chips",
-        options: ["Show off a product", "Gift idea", "Watch it get made", "Unboxing", "Name ideas", "Christmas deadline", "Sale or discount", "Answer a question", "Ask your followers", "Story behind the shop"],
+        options: ["Show off a product", "Gift idea", "How ordering works", "Unboxing", "Name ideas", "Christmas deadline", "Sale or discount", "Answer a question", "Ask your followers", "Story behind the shop"],
         value: "Show off a product" },
       { id: "mood", label: "Mood", type: "chips",
         options: ["Cozy & warm", "Heartfelt", "Fun & playful", "Funny", "Classy", "Excited", "Calm & simple", "Hurry, Christmas is close"], value: "Cozy & warm" },
@@ -285,7 +286,7 @@ const TOOLS = [
         placeholder: "Example: 10% off this weekend with code COZY10", hint: "Sales, codes, new colors, something that happened this week." }
     ],
     example: [
-      { label: "TikTok: Watch it get made", text: "HOOK (on screen, first 2 seconds):\nPOV: you're getting her name on a hoodie for Christmas\n\nSHOTS:\n1. Close up of the plain hoodie folded on a table\n2. Phone screen typing the name on the store\n3. The finished hoodie held up to the camera\n4. Fold it, drop it in a gift bag\n\nTEXT ON SCREEN:\nany name you want\nsoft and warm inside\norder by Dec 10 for Christmas\n\nSOUND: pick a calm trending sound in the TikTok app\n\nCAPTION:\nmade just for her 🧡 link in bio https://logax-sse4610z.myshopify.com", hashtags: "#personalizedgifts #christmasgift #giftideasforher #smallbusiness" }
+      { label: "TikTok: How ordering works", text: "HOOK (on screen, first 2 seconds):\nPOV: you're getting her name on a hoodie for Christmas\n\nSHOTS:\n1. Phone screen picking the hoodie on the store\n2. Typing her name in the name box\n3. The finished hoodie held up to the camera\n4. Fold it, drop it in a gift bag\n\nTEXT ON SCREEN:\nany name you want\nsoft and warm inside\norder by Dec 10 for Christmas\n\nSOUND: pick a calm trending sound in the TikTok app\n\nCAPTION:\nmade just for her 🧡 link in bio https://logax-sse4610z.myshopify.com", hashtags: "#personalizedgifts #christmasgift #giftideasforher #smallbusiness" }
     ],
     buildPrompt: v => {
       const videoPlatform = v.platform === "TikTok" || v.platform === "Instagram Reel";
@@ -322,7 +323,7 @@ const TOOLS = [
           "- Hashtags: 0 to 3, optional."
         ],
         "Facebook Marketplace": [
-          "- Marketplace listing description: start with the product name and price, then sizes or details, then how to order with the store link. No hashtags."
+          "- Marketplace listing description: the first line is the product name and its price. Then the details, then how to order with the store link. No hashtags, no stories."
         ]
       }[v.platform] || [];
       if (captionOnly) {
@@ -336,10 +337,26 @@ const TOOLS = [
       }
       if (isVideo) platformRules.push("- Put every heading on its own line, and every numbered shot on its own line. Don't put quote marks around on-screen text.");
       platformRules.push("- Hashtags go ONLY in the hashtags field, never inside the post text or caption.");
+      // A worked example (for a different product) shows the small local AI the style far better than rules do
+      const orn = /ornament/i.test(v.product);
+      const exLink = storeLink();
+      const examples = {
+        "Facebook": orn
+          ? `Any name you want, printed on a soft fleece hoodie.\nWe make each one to order, sizes S to 3XL.\nIt's an easy gift for mom, grandma or your sister this year.\nOrder by ${STORE.christmasDeadline} if you want it for Christmas.\n${exLink}`
+          : `Everyone's name on one ornament, plus the year.\nWe make each one to order and it comes ready to hang.\nIt's a simple gift for grandparents or a new family this year.\nOrder by ${STORE.christmasDeadline} if you want it for Christmas.\n${exLink}`,
+        "Instagram post": orn
+          ? `her name, on the softest hoodie she owns 🧡\nmade to order, sizes S to 3XL.\nlink in bio ${exLink}`
+          : `the whole family, on one ornament.\nnames and the year, made to order, ready to hang.\nlink in bio ${exLink}`,
+        "Facebook Marketplace": orn
+          ? `Personalized Name Hoodie, $44.99\nAny name printed on a soft, warm fleece hoodie.\nSizes S to 3XL. Made to order.\nOrder here: ${exLink}`
+          : `Personalized Family Christmas Ornament, $16.99\nFamily names and the year on a keepsake ornament, ready to hang.\nMade to order.\nOrder here: ${exLink}`
+      }[isVideo || captionOnly ? "" : v.platform];
+      if (examples) platformRules.push("- Here is one good " + v.platform + " post for a different product, so you can see the style. Write new words, don't copy it:\n" + examples);
+      if (!isVideo) platformRules.push("- Put each sentence on its own line, short and easy to read.");
       const kindHints = {
         "Show off a product": "Focus on what makes the product nice: how it looks, feels and who it's for.",
         "Gift idea": "Frame it as the answer to \"what do I get them?\" for a specific person (mom, grandma, sister, best friend, kids).",
-        "Watch it get made": "Show the steps from plain item to finished personalized gift. Satisfying and simple.",
+        "How ordering works": "Show how easy it is to order: picking the product on the store, typing the name, then the finished one (he has samples to show). Don't show or say he prints or sews it himself.",
         "Unboxing": "Show opening the package and seeing the name for the first time.",
         "Name ideas": "Play with names: the person's name, a nickname, \"Mama\", \"Nana\", a family name, a pet's name.",
         "Christmas deadline": `Remind people to order by ${STORE.christmasDeadline} for Christmas. Urgent but friendly, not pushy.`,
@@ -403,6 +420,7 @@ const TOOLS = [
       const date = STORE.christmasDeadline;
       const what = v.product === "The whole store" ? "the shop's personalized gifts" : v.product;
       const isOrnament = /ornament/i.test(v.product);
+      const noun = isOrnament ? "ornament" : /hoodie/i.test(v.product) ? "hoodie" : "product";
       // A worked example (for a different product) shows the small local AI the style far better than rules do
       const example = isOrnament
         ? { label: "Her name, front and center", line1: "Any name you want, printed on a soft fleece hoodie.", line2: "Each one is made to order, sizes S to 3XL.", line3: late ? "A cozy gift she'll wear all winter." : `Order by ${date} to have it for Christmas.`,
@@ -413,15 +431,21 @@ const TOOLS = [
         ? "the ornament hanging on a lit tree with the names showing, the ornament in a gift box, his hand holding it up to the camera, a short phone video turning it to show the names"
         : v.product === "The whole store"
           ? "a few products laid out together on a table, a hoodie and an ornament in a gift bag, his hands holding a product up to the camera"
-          : "the product folded on a bed or table with the name showing, the product in a gift bag or box, his hands holding it up to the camera, a short phone video unfolding it to show the name";
+          : `the ${noun} folded on a bed or table with the ${/name/i.test(v.product) ? "name" : "design"} showing, the ${noun} in a gift bag or box, his hands holding the ${noun} up to the camera, a short phone video unfolding the ${noun} to show the ${/name/i.test(v.product) ? "name" : "design"}`;
       const deadlineLine = late ? "" : `, with the ${date} date`;
+      adPlanLabels = {
+        "Sell a product": ["Who it's for", "The " + noun, "Why it's a good gift"],
+        "Christmas deadline": late ? ["Who it's for", "The " + noun, "Winter gift"] : ["Who it's for", "The " + noun, "The date"],
+        "Sale or code": ["The offer", "The " + noun, "Who it's for"],
+        "Bring back visitors": ["Reminder", "Who it's for", late ? "Made for them" : "The date"]
+      }[v.goal] || ["Ad 1", "Ad 2", "Ad 3"];
       const plan = {
-        "Sell a product": ["Who it's for: a gift for mom, grandma, a sister or a best friend.", "The product itself: the name on it, how it feels, made to order.", "Why it makes a good gift: personal, made just for them."],
+        "Sell a product": ["Who it's for: a gift for mom, grandma, a sister or a best friend.", "The product itself, using its details.", "Why it makes a good gift."],
         "Christmas deadline": late
-          ? ["Who it's for: a gift for mom, grandma, a sister or a best friend.", "The product itself: the name on it, how it feels, made to order.", "A cozy winter gift that's personal."]
-          : [`Who it's for: a gift for mom, grandma, a sister or a best friend${deadlineLine}.`, `The product itself: the name on it, how it feels, made to order${deadlineLine}.`, `The date first: order by ${date} to have it for Christmas.`],
+          ? ["Who it's for: a gift for mom, grandma, a sister or a best friend.", "The product itself, using its details.", "A cozy winter gift."]
+          : [`Who it's for: a gift for mom, grandma, a sister or a best friend${deadlineLine}.`, `The product itself, using its details${deadlineLine}.`, `The date first: order by ${date} to have it for Christmas.`],
         "Sale or code": ["The offer first, exactly as written below.", "The product itself, then the offer.", "Who it's for, then the offer."],
-        "Bring back visitors": ["A friendly reminder of what makes the product nice.", "Who it's for: a gift for mom, grandma, a sister or a best friend.", late ? "Made to order, just for them." : `Order by ${date} to have it for Christmas.`]
+        "Bring back visitors": ["A friendly reminder of what makes it nice, using its details.", "Who it's for: a gift for mom, grandma, a sister or a best friend.", late ? "Made to order, just for them." : `Order by ${date} to have it for Christmas.`]
       }[v.goal] || [];
       return [
         `You write paid ${stories ? "Stories and Reels" : "feed"} ads for Facebook and Instagram for ${STORE.name}, a small family gift shop.`,
@@ -429,6 +453,7 @@ const TOOLS = [
         `Today's date: ${new Date().toDateString()}.`,
         "",
         `Write 3 ads for: ${what}.`,
+        v.product === "The whole store" ? "" : `About this product: ${(productFacts(v.product)[0] || {}).details || ""}`,
         `Feel: ${v.angle.toLowerCase()}.`,
         v.extra ? `Offer: ${v.extra}. Use it exactly as written.` : "Offer: none. Don't mention any discount, sale or code.",
         v.goal === "Bring back visitors" ? "These ads go to people who already looked at the store. Never say or hint that you saw them or know they visited." : "",
@@ -438,12 +463,12 @@ const TOOLS = [
         "",
         "Each ad:",
         stories
-          ? "- line1, line2: one short sentence each, the ad's main text. Stories show very little, so keep both short. line3 must be empty."
-          : "- line1, line2, line3: the ad's main text, one short sentence each. line1 grabs attention on its own. line3 can be empty.",
-        "- Be plain and specific about the product: the name on it, what it's made of, made to order, sizes. Write like the shop owner, not an ad agency.",
-        "- headline: under 40 characters.",
+          ? "- line1, line2: the ad's main text. Each one is a complete short sentence that makes sense by itself. Stories show very little, so keep both short. line3 must be empty."
+          : "- line1, line2, line3: the ad's main text. Each one is a complete short sentence that makes sense by itself. line1 grabs attention on its own. line3 can be empty.",
+        "- Be plain and specific, using only the facts in \"About this product\". Don't add materials, shipping times or anything else that isn't written there. Write like the shop owner, not an ad agency.",
+        "- headline: under 40 characters, and different in each ad. A short phrase about this product, not just its name.",
         "- description: under 30 characters.",
-        "- button: " + (v.extra ? "Get offer, Shop now or Order now." : "Shop now or Order now."),
+        "- button: " + (v.extra ? "Get offer for the ad that leads with the offer, otherwise Shop now or Order now." : "Shop now or Order now."),
         `- picture: pick one of these and describe it in one sentence: ${pictures}. ${stories ? "Make it a vertical phone video, 6 to 15 seconds." : ""} No people wearing it, no models, no kids, no smiling faces.`,
         "- label: 2 to 4 words.",
         "",
@@ -662,7 +687,7 @@ function renderTool() {
 const POSTS_SCHEMA = {
   type: "object",
   properties: {
-    posts: { type: "array", items: { type: "object",
+    posts: { type: "array", minItems: 3, maxItems: 3, items: { type: "object",
       properties: { label: { type: "string" }, text: { type: "string" }, hashtags: { type: "string" } },
       required: ["label", "text", "hashtags"] } }
   },
@@ -671,7 +696,7 @@ const POSTS_SCHEMA = {
 const ADS_SCHEMA = {
   type: "object",
   properties: {
-    ads: { type: "array", items: { type: "object",
+    ads: { type: "array", minItems: 3, maxItems: 3, items: { type: "object",
       properties: { label: { type: "string" }, line1: { type: "string" }, line2: { type: "string" }, line3: { type: "string" },
         headline: { type: "string" }, description: { type: "string" },
         button: { type: "string", enum: ["Shop now", "Order now", "Get offer", "Learn more"] }, picture: { type: "string" } },
@@ -681,9 +706,38 @@ const ADS_SCHEMA = {
 };
 const AD_LIMITS = { headline: 40, description: 30, hook: 125 };
 const AD_BUTTONS = ["Shop now", "Order now", "Get offer", "Learn more"];
-const AD_BANNED = ["last chance", "hurry", "don't miss", "limited", "special someone", "show you care", "gift of love", "thoughtful", "unique", "you deserve"];
+const AD_BANNED = ["loved one", "last chance", "hurry", "don't miss", "limited", "special someone", "show you care", "gift of love", "thoughtful", "unique", "you deserve"];
 const AD_PEOPLE = /\b(wearing|wears|model|models|child|children|kid|kids|woman|women|man|men|girl|girls|boy|boys|smil\w*|person|people|hugging|hugs)\b/i;
 let runValues = {};
+// Claims the AI likes to make up. Each is only allowed if the product's own details say so.
+const CLAIM_WORDS = ["color", "colors", "colour", "colours", "font", "fonts", "name style", "in no time", "fast", "quickly", "ready to go", "same day", "overnight", "next day", "delicate", "sparkly", "shiny", "glitter", "glass", "ceramic", "wood", "wooden", "metal", "acrylic", "porcelain", "cotton", "polyester", "organic", "handmade", "hand made", "hand painted", "hand-painted", "engraved", "embroidered", "durable", "waterproof", "machine washable", "free shipping", "fast shipping", "ships in", "guarantee", "lifetime"];
+function productFacts(name) {
+  const list = storeProducts();
+  const p = list.find(x => x.name === name);
+  return p ? [p] : list;
+}
+function truthProblems(text, productName) {
+  const out = [];
+  const facts = productFacts(productName).map(p => (p.name + " " + p.details).toLowerCase()).join(" ");
+  const low = text.toLowerCase();
+  const made = CLAIM_WORDS.filter(w => new RegExp("\\b" + w + "\\b").test(low) && !facts.includes(w));
+  if (made.length) out.push("don't say " + made.map(w => "\"" + w + "\"").join(", ") + ", that isn't in the product details");
+  if (/\b(so many|lots of (people|moms|customers|orders)|hundreds|thousands|everyone('s| is) (loving|ordering|buying)|customers (love|say|are)|people (love|are loving|keep)|best[- ]?sell\w*|most popular|selling fast|flying off|sold out|back by popular|fan favorite|favorite of)\b/.test(low))
+    out.push("don't claim how many people bought it, what customers think, or that it's popular or selling fast");
+  if (/\b(moms|families|kids|grandmas|grandparents|people|everyone|customers|teens) (love|adore|are loving)\b/.test(low))
+    out.push("don't claim what groups of people love, just describe the product");
+  if (/\bwe('ve| have) had (a few |some |many |lots of |so many )?(customers|people|orders|moms|families)\b|\b(a few|some|many|several) (of our )?customers\b/.test(low))
+    out.push("don't make up what customers have ordered or done");
+  const story = low.replace(/things i'?d (buy|get|gift) (for )?my \w+/g, "").match(/\b(my|our) (grand ?kids?|grandchildren|kids?|children|niece|nephew|daughter|son|wife|husband|mom|mother|dad|father|sister|brother|grandma|grandpa|aunt|uncle|cousin|friends?|dog|cat|pup|puppy|customers?|neighbou?r)\b/);
+  if (story && !(runValues.extra || "").toLowerCase().includes(story[0]))
+    out.push("don't make up stories about the owner's family, friends, pets or customers");
+  if (deadlinePassed() && /\b(by|for|before|in time for) christmas\b/.test(low)) out.push("the Christmas order deadline has passed, don't promise delivery by Christmas");
+  const personal = /personaliz|any name|name on|names|custom/.test(facts);
+  if (productName && productName !== "The whole store" && !personal && /\b(any name|her name|his name|their name|your name|personaliz\w*|customi[sz]\w*|custom)\b/.test(low))
+    out.push("this product isn't personalized, don't mention names or personalizing");
+  return out;
+}
+let adPlanLabels = ["Ad 1", "Ad 2", "Ad 3"];
 function adLine(t) {
   t = String(t || "").replace(/\s+/g, " ").trim();
   if (t && !/[.!?)"'’”]$/.test(t) && !/\p{Extended_Pictographic}$/u.test(t)) t += ".";
@@ -711,6 +765,8 @@ const FORMATS = {
       }
       if (/\b[A-Z]{4,}\b/.test(t.replace(/\b(HOOK|SHOTS|TEXT ON SCREEN|SOUND|AUDIO|CAPTION|POV)\b/g, ""))) out.push("remove words written in ALL CAPS");
       if (/#(fyp|foryou|foryoupage)\b/i.test(t + " " + p.hashtags)) out.push("don't use #fyp or #foryou");
+      out.push(...truthProblems(t, v.product));
+
       if (!v.extra && /(\d+\s*%|percent off|\bpromo code\b|discount code|\bcoupon\b)/i.test(t)) out.push("remove the discount, no offer was given");
       if (deadlinePassed() && /december 10|dec\.? 10/i.test(t)) out.push("the December 10 Christmas deadline has passed, don't mention it");
       return out;
@@ -743,7 +799,16 @@ const FORMATS = {
       const first = a.primaryText.split("\n")[0];
       if (first.length > AD_LIMITS.hook) out.push(`line1 is ${first.length} characters, make it under ${AD_LIMITS.hook}`);
       if (runValues.place !== "Stories & Reels" && a.primaryText.split("\n").length < 2) out.push("write line1 and line2 as two separate short sentences");
-      if (/\b[A-Z]{4,}\b/.test(a.primaryText + " " + a.headline)) out.push("remove words written in ALL CAPS");
+      const caps = ((a.primaryText + " " + a.headline).match(/\b[A-Z]{4,}\b/g) || []).filter(w => !(runValues.extra || "").includes(w));
+      if (caps.length) out.push("remove words written in ALL CAPS: " + caps.join(", "));
+      if (runValues.extra) {
+        const code = (runValues.extra.match(/\b(?=[A-Z0-9]*[A-Z])(?=[A-Z0-9]*\d)[A-Z0-9]{4,}\b|\b[A-Z]{4,}\b/) || [])[0];
+        const pct = (runValues.extra.match(/\d+\s*%/) || [])[0];
+        const hasOffer = (code && all.includes(code.toLowerCase())) || (pct && all.includes(pct.replace(/\s/g, "").toLowerCase()));
+        if ((code || pct) && !hasOffer) out.push("mention the offer in line1 or line2, exactly as written: " + runValues.extra);
+      }
+      out.push(...truthProblems(a.primaryText + " " + a.headline + " " + a.description, runValues.product));
+      if (runValues.place === "Stories & Reels" && a.primaryText.split("\n").length > 2) out.push("Stories ads have only line1 and line2, leave line3 empty");
       if (AD_PEOPLE.test(a.picture)) out.push("the picture must show only the product, his hands or the store, no people wearing it, models or kids");
       if (!runValues.extra && /(\d+\s*%|percent|\bsale\b|\bcode\b|discount|\boff\b\s+(your|orders|everything))/i.test(all)) out.push("remove the discount, there is no offer");
       return out;
@@ -813,7 +878,8 @@ async function askAI(prompt, fmt, temperature) {
   return localChat(prompt, fmt, temperature);
 }
 
-const BANNED = ["elevate", "unleash", "look no further", "whether you're", "must-have", "game-changer", "next level", "in today's world", "embrace", "loved ones", "perfect gift", "thoughtful gift", "unique gift", "gift shopping dilemma", "look and feel", "cherish"];
+const BANNED = ["elevate", "unleash", "look no further", "whether you're", "must-have", "game-changer", "next level", "in today's world", "embrace", "loved ones", "perfect gift", "thoughtful", "unique gift", "gift shopping dilemma", "look and feel", "cherish",
+  "what more could you ask for", "years to come", "a little brighter", "to remember", "lovely addition", "brings us together", "how much you care", "special women", "don't wait", "last chance", "treasure", "make it special", "special part of", "with love", "sweet treat", "snuggl"];
 
 function checkerPrompt(writerPrompt, items, fmt) {
   return [
@@ -848,11 +914,18 @@ function finalAdPass(ads) {
     return cut || t.slice(0, max);
   };
   const date = STORE.christmasDeadline;
-  return ads.map(a => {
+  return ads.map((a, i) => {
     let text = strip(a.primaryText);
     // Christmas deadline ads always carry the real date
-    if (runValues.goal === "Christmas deadline" && !deadlinePassed() && !text.toLowerCase().includes(date.toLowerCase()) && !/\bdec(ember)?\.?\s*10\b/i.test(text))
-      text = text + "\nOrder by " + date + " to have it for Christmas.";
+    const hasDate = t => t.toLowerCase().includes(date.toLowerCase()) || /\bdec(ember)?\.?\s*10\b/i.test(t);
+    const stories = runValues.place === "Stories & Reels";
+    if (stories) text = text.split("\n").slice(0, 2).join("\n");
+    if (runValues.goal === "Christmas deadline" && !deadlinePassed() && !hasDate(text)) {
+      const lines = text.split("\n");
+      if (stories && lines.length >= 2) lines[1] = "Order by " + date + " for Christmas.";
+      else lines.push("Order by " + date + " to have it for Christmas.");
+      text = lines.join("\n");
+    }
     let headline = strip(a.headline).replace(/\n/g, " ").replace(/[.!]$/, "");
     if (headline.length > AD_LIMITS.headline) headline = fit(headline, AD_LIMITS.headline);
     let description = strip(a.description).replace(/\n/g, " ").replace(/\.$/, "");
@@ -860,7 +933,9 @@ function finalAdPass(ads) {
     let picture = cleanLine(a.picture);
     picture = picture.charAt(0).toUpperCase() + picture.slice(1);
     if (picture && !/[.!?]$/.test(picture)) picture += ".";
-    return { label: a.label.replace(/\s*[—–]\s*/g, ": "), primaryText: text, headline, description,
+    let label = a.label.replace(/\s*[—–]\s*/g, ": ").trim();
+    if (label.split(/\s+/).length > 4 || label.length > 28) label = adPlanLabels[i] || "Ad " + (i + 1);
+    return { label, primaryText: text, headline, description,
       button: a.button === "Get offer" && !runValues.extra ? "Shop now" : a.button, picture };
   });
 }
@@ -874,19 +949,43 @@ function finalPass(posts) {
       .replace(/\[(link|your link|store link|link to your store|your store)\]/gi, link);
     // Lay out video scripts: each heading and each numbered shot on its own line
     const HEAD = /\s*\b(HOOK(?:\s*\([^)]*\))?|SHOTS(?:\s*\([^)]*\))?|TEXT ON SCREEN(?:\s*\([^)]*\))?|SOUND|AUDIO|CAPTION)\s*:\s*/g;
-    if (/\bHOOK\b[^:]*:/.test(text)) {
+    const isScript = /\bHOOK\b[^:]*:/.test(text);
+    if (isScript) {
       text = text.replace(HEAD, (m, h) => "\n\n" + h + ":\n").replace(/^\n+/, "");
       text = text.replace(/(SHOTS[^:]*:\n)([\s\S]*?)(?=\n\n[A-Z ]+[^:\n]*:\n|$)/, (m, h, body) =>
         h + body.replace(/,?\s+(?=\d+\.\s)/g, "\n").trim());
     }
     // Drop quote marks wrapped around whole lines
-    text = text.split("\n").map(l => l.replace(/^(\s*)['"‘“]([^\n]*?)['"’”](?=\s|$)/, "$1$2")).join("\n");
+    text = text.split("\n").map(l => l.replace(/^(\s*)['"‘“]([^\n]*?)['"’”][,;]?\s*$/, "$1$2").replace(/^(\s*)['"‘“]([^\n]*?)['"’”](?=\s|$)/, "$1$2")).join("\n");
     // Hashtags live in their own box, not in the text
     const tags = (p.hashtags.match(/#[\w]+/g) || []).concat(text.match(/#[\w]+/g) || []);
     text = text.replace(/[ \t]*#[\w]+/g, "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+    if (!isScript && /^Facebook/.test(runValues.platform || "")) {
+      // One sentence per line, and the link on its own line, so it's easy to read
+      text = text.split("\n").map(l => l.length > 90 ? l.replace(/(\b(?:Mr|Mrs|Ms|Dr|St|Dec|Nov|Jan)\.)\s+/g, "$1\u00a0").replace(/([.!?])\s+(?=[A-Z"“])/g, "$1\n").replace(/\u00a0/g, " ") : l).join("\n");
+      text = text.replace(new RegExp("[ \\t]*" + link.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), "\n" + link).replace(/\n{2,}(?=http)/g, "\n");
+    }
     if (!text.includes(link)) text = text.trimEnd() + "\n" + link;
-    const hashtags = [...new Set(tags.map(t => t.toLowerCase()))].join(" ");
-    return { label: p.label.replace(/\s*[—–]\s*/g, ": "), text, hashtags };
+    // Instagram and TikTok captions can't have clickable links, so point people to the bio
+    if (/^(TikTok|Instagram)/.test(runValues.platform || "") && !/link in (my |our )?bio/i.test(text))
+      text = text.replace(link, "link in bio " + link);
+    const facts = productFacts(runValues.product).map(x => (x.name + " " + x.details).toLowerCase()).join(" ");
+    let hashtags = [...new Set(tags.map(t => t.toLowerCase()))]
+      .filter(t => !CLAIM_WORDS.some(w => t.includes(w.replace(/[ -]/g, "")) && !facts.includes(w)))
+      .filter(t => !/^#(fyp|foryou|foryoupage)$/.test(t))
+      .join(" ");
+    if (runValues.platform === "Facebook Marketplace") {
+      hashtags = "";
+      const prod = runValues.product !== "The whole store" && productFacts(runValues.product)[0];
+      if (prod) {
+        const head = prod.name + ", " + prod.price;
+        const lines = text.split("\n");
+        if (!lines[0].includes(prod.price.split(" ")[0])) text = head + "\n" + (lines[0].toLowerCase().includes(prod.name.toLowerCase().slice(0, 18)) && lines[0].length < 60 ? lines.slice(1) : lines).join("\n");
+      }
+    }
+    let label = p.label.replace(/\s*[—–]\s*/g, ": ").trim();
+    if (label.split(/\s+/).length > 5 || label.length > 32 || /\$\d/.test(label)) label = runValues.kind || "Post";
+    return { label, text, hashtags };
   });
 }
 
@@ -897,14 +996,30 @@ async function runAgents(prompt, say, fmt = FORMATS.posts) {
 
   setAgent("writer", "working", "Writing 3 " + fmt.noun + "s…");
   say("Writer agent is drafting your " + fmt.noun + "s…" + (engine === "local" ? " (local AI can take up to a minute)" : ""));
-  const drafts = toItems(await askAI(prompt, fmt), fmt);
+  let drafts = toItems(await askAI(prompt, fmt), fmt);
+  // Small models sometimes write fewer than 3. Ask again for the missing ones.
+  for (let tries = 0; drafts.length < 3 && tries < 2; tries++) {
+    try {
+      const more = toItems(await askAI(prompt + "\n\nYou already wrote these. Write " + (3 - drafts.length) + " more that are clearly different from them:\n" +
+        JSON.stringify({ [fmt.key]: drafts.map(fmt.toAI) }), fmt), fmt);
+      drafts = drafts.concat(more).slice(0, 3);
+    } catch (e) { if (!drafts.length) throw e; }
+  }
   if (!drafts.length) throw { code: "error" };
   setAgent("writer", "done", "Wrote " + plural(drafts.length, fmt.noun) + ".");
 
-  const issues = p => [
-    ...BANNED.filter(w => fmt.words(p).toLowerCase().includes(w)).map(w => "don't use the words \"" + w + "\""),
-    ...fmt.problems(p)
-  ];
+  let pool = [];   // the current set, so repeats across the 3 can be caught
+  const issues = p => {
+    const out = [
+      ...BANNED.filter(w => fmt.words(p).toLowerCase().includes(w)).map(w => "don't use the words \"" + w + "\""),
+      ...fmt.problems(p)
+    ];
+    const key = fmt.key === "ads" ? "headline" : "label";
+    const earlier = pool.slice(0, pool.indexOf(p) < 0 ? pool.length : pool.indexOf(p));
+    if (fmt.key === "ads" && earlier.some(q => q[key].toLowerCase() === p[key].toLowerCase()))
+      out.push("use a headline that's different from the other ads: " + earlier.map(q => "\"" + q.headline + "\"").join(", "));
+    return out;
+  };
   setAgent("checker", "working", "Reading every draft…");
   say("Checker agent is reviewing them…");
   let checked = drafts;
@@ -913,15 +1028,24 @@ async function runAgents(prompt, say, fmt = FORMATS.posts) {
     const fixed = toItems(await askAI(checkerPrompt(prompt, drafts, fmt), fmt, 0.2), fmt);
     if (fixed.length) {
       // Keep the Checker's version only where it didn't make things worse
-      checked = drafts.map((d, i) => fixed[i] && issues(fixed[i]).length <= issues(d).length ? fixed[i] : d);
+      const kept = [];
+      drafts.forEach((d, i) => {
+        pool = kept.concat([d]);
+        const before = issues(d).length;
+        if (!fixed[i]) { kept.push(d); return; }
+        pool = kept.concat([fixed[i]]);
+        kept.push(issues(fixed[i]).length <= before ? fixed[i] : d);
+      });
+      checked = kept;
       const edited = checked.filter((p, i) => !fmt.same(p, drafts[i])).length;
-      checkerNote = edited ? "Edited " + edited + " of " + plural(fixed.length, fmt.noun) + "." : (fixed.length === 1 ? "It passed." : "All " + fixed.length + " " + fmt.noun + "s passed.");
+      checkerNote = edited ? "Edited " + edited + " of " + plural(checked.length, fmt.noun) + "." : (checked.length === 1 ? "It passed." : "All " + checked.length + " " + fmt.noun + "s passed.");
     }
   } catch (e) { checkerNote = "Couldn't finish, so the drafts went on to the next step."; }
   setAgent("checker", "done", checkerNote);
 
   // Polisher: anything that still breaks a rule gets one quick rewrite
   let polished = 0;
+  pool = checked;
   const needs = checked.filter(p => issues(p).length).length;
   if (!needs) setAgent("polisher", "done", "Nothing to fix.");
   for (let i = 0; i < checked.length; i++) {
@@ -936,7 +1060,11 @@ async function runAgents(prompt, say, fmt = FORMATS.posts) {
         JSON.stringify({ [fmt.key]: [fmt.toAI(checked[i])] }),
         fmt.shape
       ].join("\n"), fmt, 0.3), fmt);
-      if (redo.length && issues(redo[0]).length < found.length) { checked[i] = redo[0]; polished++; }
+      if (redo.length) {
+        pool = checked.slice(0, i).concat([redo[0]]);
+        if (issues(redo[0]).length < found.length) { checked[i] = redo[0]; polished++; }
+        pool = checked;
+      }
     } catch (e) {}
   }
   if (needs) setAgent("polisher", "done", "Fixed " + polished + " of " + plural(needs, fmt.noun) + ".");
