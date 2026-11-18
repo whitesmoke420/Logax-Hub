@@ -87,14 +87,43 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .settings { font-size: 14px; color: var(--muted); }
 .settings summary { cursor: pointer; font-weight: 600; color: var(--ink); }
 .settings .field { margin-top: 10px; }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+/* AI Agents tab */
+.team { display: flex; flex-direction: column; gap: 20px; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.stat { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+.stat b { display: block; font-family: var(--display); font-size: 30px; line-height: 1.1; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: 13px; }
+.agents { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 900px) { .agents, .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .agents { grid-template-columns: 1fr; } }
+.agent { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 10px; position: relative; }
+.agent.is-working { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+.agent .num { width: 34px; height: 34px; border-radius: 50%; background: var(--brand); color: var(--brand-ink); display: grid; place-items: center; font-family: var(--display); font-weight: 600; font-size: 19px; }
+.agent h3 { margin: 0; font-family: var(--display); font-size: 23px; font-weight: 600; }
+.agent .kind { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold); }
+.agent p { margin: 0; color: var(--muted); font-size: 14px; }
+.agent .note { color: var(--ink); font-size: 14px; min-height: 1.5em; }
+.pill { align-self: flex-start; font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); background: var(--bg); }
+.pill.working { border-color: var(--gold); color: var(--ink); background: var(--gold-soft); animation: pulse 1.4s ease-in-out infinite; }
+.pill.done { border-color: var(--brand); color: var(--brand-ink); background: var(--brand); }
+.pill.error { border-color: #B3261E; color: #B3261E; }
+:root[data-theme="dark"] .pill.error { color: #F2B8B5; border-color: #F2B8B5; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pill.error { color: #F2B8B5; border-color: #F2B8B5; } }
+@keyframes pulse { 50% { opacity: 0.55; } }
+.log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.log li { display: grid; grid-template-columns: 150px minmax(0, 1fr) auto; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); font-size: 15px; }
+.log li:first-child { border-top: 0; }
+.log time, .log .took { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+@media (max-width: 620px) { .log li { grid-template-columns: 1fr; gap: 2px; } }
+.empty { color: var(--muted); margin: 0; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 </head>
 <body>
 <header class="top">
   <div class="top-inner">
     <p class="wordmark">LOGAX<span>HUB</span></p>
-    <small>Your tools for running the store. Built by SiteSwift. <span class="ver">Version 1.1</span></small>
+    <small>Your tools for running the store. Built by SiteSwift. <span class="ver">Version 1.2</span></small>
   </div>
 </header>
 
@@ -186,6 +215,7 @@ const TOOLS = [
     title: "Write a post",
     lead: "Pick a product, where it's going, what kind of post and a mood. You'll get 3 ready-to-use versions. TikTok and Reels come as simple video scripts you can film on your phone.",
     button: "Write 3 posts",
+    runTitle: v => `${v.platform}: ${v.kind} (${v.product})`,
     fields: [
       { id: "product", label: "Product", type: "select",
         options: () => [...STORE.products.map(p => p.name), "The whole store"] },
@@ -296,6 +326,7 @@ const TOOLS = [
    APP: you shouldn't need to change anything below this line
    to add a tool.
    ============================================================ */
+TOOLS.push({ id: "agents", name: "AI Agents", render: () => renderAgentsPage() });
 const tabsEl = document.getElementById("tabs");
 const areaEl = document.getElementById("tool-area");
 const noticeEl = document.getElementById("ai-notice");
@@ -392,6 +423,7 @@ function renderCards(container, items, isExample) {
 
 function renderTool() {
   const t = activeTool;
+  if (t.render) { areaEl.replaceChildren(t.render()); return; }
   const form = el("form", { class: "panel", novalidate: "" },
     el("h2", { text: t.title }),
     el("p", { class: "lead", text: t.lead }),
@@ -407,7 +439,9 @@ function renderTool() {
     e.preventDefault();
     go.disabled = true;
     try {
-      const items = await runAgents(t.buildPrompt(readValues(t)), msg => (status.textContent = msg));
+      const values = readValues(t);
+      runTitle = t.runTitle ? t.runTitle(values) : t.name;
+      const items = await runAgents(t.buildPrompt(values), msg => (status.textContent = msg));
       renderCards(results, items, false);
       status.textContent = "Done. Tap Copy on the one you like.";
     } catch (err) {
@@ -416,7 +450,10 @@ function renderTool() {
       else if (err && err.code === "not_granted") { noticeEl.hidden = false; status.textContent = "AI access wasn't allowed. Allow it when asked, then try again."; }
       else if (err && err.code === "rate_limited") status.textContent = "Too many requests. Wait a minute and try again.";
       else status.textContent = "Something went wrong writing the posts. Try again.";
-    } finally { go.disabled = false; }
+    } finally {
+      go.disabled = false;
+      AGENTS.forEach(a => { if (agentState[a.id].status === "working" || agentState[a.id].status === "waiting") setAgent(a.id, "error", "Didn't finish this time."); });
+    }
   });
 
   areaEl.replaceChildren(el("div", { class: "tool" }, form, results));
@@ -524,20 +561,38 @@ function finalPass(posts) {
 
 async function runAgents(prompt, say) {
   if (engine === "claude" && !sampleFn) throw { code: "no_ai" };
+  const started = Date.now();
+  AGENTS.forEach(a => setAgent(a.id, "waiting", "Waiting for its turn."));
+
+  setAgent("writer", "working", "Writing 3 drafts…");
   say(engine === "local" ? "Writer agent is drafting your posts… (local AI can take up to a minute)" : "Writer agent is drafting your posts…");
   const drafts = toPosts(await askAI(prompt));
   if (!drafts.length) throw { code: "error" };
+  setAgent("writer", "done", "Wrote " + plural(drafts.length, "draft") + ".");
+
+  setAgent("checker", "working", "Reading every draft…");
   say("Checker agent is reviewing them…");
   let checked = drafts;
+  let checkerNote = "Checked " + plural(drafts.length, "post") + ".";
   try {
     const fixed = toPosts(await askAI(checkerPrompt(prompt, drafts)));
-    if (fixed.length) checked = fixed;
-  } catch (e) { /* if the checker fails, keep the drafts and rely on the final pass */ }
+    if (fixed.length) {
+      checked = fixed;
+      const edited = fixed.filter((p, i) => !drafts[i] || p.text !== drafts[i].text).length;
+      checkerNote = edited ? "Edited " + edited + " of " + plural(fixed.length, "post") + "." : (fixed.length === 1 ? "The post passed." : "All " + fixed.length + " posts passed.");
+    }
+  } catch (e) { checkerNote = "Couldn't finish, so the drafts went on to the next step."; }
+  setAgent("checker", "done", checkerNote);
+
   // Fix-up: any post that still uses a banned word gets one quick rewrite
   const hasBanned = p => BANNED.filter(w => (p.text + " " + p.label).toLowerCase().includes(w));
+  let polished = 0;
+  const needs = checked.filter(p => hasBanned(p).length).length;
+  if (!needs) setAgent("polisher", "done", "Nothing to fix.");
   for (let i = 0; i < checked.length; i++) {
     const found = hasBanned(checked[i]);
     if (!found.length) continue;
+    setAgent("polisher", "working", "Rewriting post " + (i + 1) + " (removing: " + found.join(", ") + ")…");
     say("Checker agent is polishing post " + (i + 1) + "…");
     try {
       const redo = toPosts(await askAI([
@@ -545,10 +600,91 @@ async function runAgents(prompt, say) {
         "Keep everything else the same: same format, same store link, same meaning, same casual small shop voice. No dashes.",
         JSON.stringify({ posts: [checked[i]] })
       ].join("\n")));
-      if (redo.length && !hasBanned(redo[0]).length) checked[i] = redo[0];
+      if (redo.length && !hasBanned(redo[0]).length) { checked[i] = redo[0]; polished++; }
     } catch (e) {}
   }
-  return finalPass(checked);
+  if (needs) setAgent("polisher", "done", "Rewrote " + polished + " of " + plural(needs, "post") + ".");
+
+  setAgent("final", "working", "Tidying up…");
+  const out = finalPass(checked);
+  const fixes = out.filter((p, i) => p.text !== checked[i].text || p.hashtags !== checked[i].hashtags).length;
+  setAgent("final", "done", fixes ? "Tidied " + plural(fixes, "post") + "." : "Everything was already clean.");
+
+  recordRun({ at: Date.now(), title: runTitle, ms: Date.now() - started, posts: out.length, polished, fixes });
+  return out;
+}
+
+/* ---------- AI Agents tab ---------- */
+const AGENTS = [
+  { id: "writer", name: "Writer", kind: "AI agent",
+    role: "Writes 3 different drafts from what you picked: product, platform, type of post and mood." },
+  { id: "checker", name: "Checker", kind: "AI agent",
+    role: "Reads every draft against the house rules. Sounds like a real person, never mentions AI, no made up reviews, right format for the platform." },
+  { id: "polisher", name: "Polisher", kind: "AI agent",
+    role: "Rewrites any post that still has salesy or robotic phrases like \"elevate\" or \"must-have\"." },
+  { id: "final", name: "Final Check", kind: "Built-in check",
+    role: "Last pass before you see it. Removes dashes, lines up video scripts, puts hashtags in one place and adds the store link." }
+];
+const PILL = { idle: "Ready", waiting: "Waiting", working: "Working", done: "Done", error: "Didn't finish" };
+const agentState = {};
+AGENTS.forEach(a => (agentState[a.id] = { status: "idle", note: "" }));
+let runTitle = "";
+let agentLog = [];
+try { agentLog = JSON.parse(localStorage.getItem("logax-agent-log") || "[]"); } catch (e) {}
+
+const plural = (n, w) => n + " " + w + (n === 1 ? "" : "s");
+function setAgent(id, status, note) {
+  agentState[id] = { status, note };
+  if (activeTool && activeTool.id === "agents") renderTool();
+}
+function recordRun(r) {
+  agentLog.unshift(r);
+  agentLog = agentLog.slice(0, 200);
+  try { localStorage.setItem("logax-agent-log", JSON.stringify(agentLog)); } catch (e) {}
+  if (activeTool && activeTool.id === "agents") renderTool();
+}
+function whenText(ts) {
+  const d = new Date(ts), now = new Date();
+  const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  if (d.toDateString() === now.toDateString()) return "Today " + time;
+  const y = new Date(now); y.setDate(now.getDate() - 1);
+  if (d.toDateString() === y.toDateString()) return "Yesterday " + time;
+  return d.toLocaleDateString([], { month: "short", day: "numeric" }) + " " + time;
+}
+
+function renderAgentsPage() {
+  const sum = k => agentLog.reduce((n, r) => n + (r[k] || 0), 0);
+  const stat = (num, label) => el("div", { class: "stat" }, el("b", { text: String(num) }), el("span", { text: label }));
+  const head = el("div", { class: "panel" },
+    el("h2", { text: "Your AI team" }),
+    el("p", { class: "lead", text: "Every post goes through these four steps before you see it. They run right here on this PC, so there's no cost per post." }),
+    el("p", { class: "lead", text: engineLine.textContent || "" }),
+    el("div", { class: "stats" },
+      stat(agentLog.length, "times they've written"),
+      stat(sum("posts"), "posts written"),
+      stat(sum("polished"), "posts polished"),
+      stat(sum("fixes"), "final touch-ups"))
+  );
+  const cards = el("div", { class: "agents" }, AGENTS.map((a, i) => {
+    const st = agentState[a.id];
+    return el("article", { class: "agent" + (st.status === "working" ? " is-working" : "") },
+      el("div", { class: "num", "aria-hidden": "true", text: String(i + 1) }),
+      el("div", {}, el("h3", { text: a.name }), el("span", { class: "kind", text: a.kind })),
+      el("p", { text: a.role }),
+      el("span", { class: "pill " + st.status, text: PILL[st.status] }),
+      el("p", { class: "note", text: st.note || "" })
+    );
+  }));
+  const recent = agentLog.slice(0, 10);
+  const log = el("div", { class: "panel" }, el("h2", { text: "Recent work" }),
+    recent.length
+      ? el("ul", { class: "log" }, recent.map(r => el("li", {},
+          el("time", { text: whenText(r.at) }),
+          el("span", { text: r.title || "Posts" }),
+          el("span", { class: "took", text: plural(r.posts, "post") + " in " + Math.max(1, Math.round(r.ms / 1000)) + "s" }))))
+      : el("p", { class: "empty", text: "Nothing yet. Write a post in Post Writer and watch the team work here." })
+  );
+  return el("div", { class: "team" }, head, cards, log);
 }
 
 async function checkLocalAI() {
@@ -566,6 +702,7 @@ async function checkLocalAI() {
     noticeEl.hidden = false;
     engineLine.textContent = "Local AI not found at " + aiAddress() + ".";
   }
+  if (activeTool && activeTool.id === "agents") renderTool();
 }
 
 async function loadLocalConfig() {
