@@ -140,6 +140,27 @@ input[type="password"] { font: inherit; font-size: 16px; color: var(--ink); back
 :root[data-theme="dark"] .err { color: #F2B8B5; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .err { color: #F2B8B5; } }
 .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+/* Ad Writer */
+button.ghost.small { font-size: 13px; padding: 5px 10px; }
+.card.ad { gap: 14px; }
+.adbox { display: flex; flex-direction: column; gap: 4px; }
+.adbox-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.adbox-name { font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.adbox-head .ghost { margin-left: auto; }
+.count { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.count.over { color: #B3261E; font-weight: 600; }
+:root[data-theme="dark"] .count.over { color: #F2B8B5; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .count.over { color: #F2B8B5; } }
+p.count { margin: -6px 0 0; }
+.card .text.one { font-weight: 600; }
+.adfacts { display: flex; gap: 24px; flex-wrap: wrap; margin: 0; }
+.adfacts div { display: flex; flex-direction: column; gap: 2px; }
+.adfacts dt { font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.adfacts dd { margin: 0; font-size: 15px; word-break: break-all; }
+.picture { background: var(--gold-soft); border-radius: 6px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+.picture p { margin: 0; font-size: 15px; }
+.guide summary { cursor: pointer; font-weight: 600; }
+.guide .steps { margin-top: 10px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 </head>
@@ -147,7 +168,7 @@ input[type="password"] { font: inherit; font-size: 16px; color: var(--ink); back
 <header class="top">
   <div class="top-inner">
     <p class="wordmark">LOGAX<span>HUB</span></p>
-    <small>Your tools for running the store. Built by SiteSwift. <span class="ver">Version 1.3</span></small>
+    <small>Your tools for running the store. Built by SiteSwift. <span class="ver">Version 1.4</span></small>
   </div>
 </header>
 
@@ -343,6 +364,79 @@ const TOOLS = [
         "Answer with only a JSON array of 3 objects: [{\"label\": short angle name, \"text\": the full post or script, \"hashtags\": hashtags as one string, or empty}]"
       ].filter(Boolean).join("\n");
     }
+  },
+  {
+    id: "ad-writer",
+    name: "Ad Writer",
+    output: "ads",
+    title: "Write a Facebook & Instagram ad",
+    lead: "Pick a product and what the ad is for. You'll get 3 ads to test against each other, each with every box Ads Manager asks for, plus an idea for the picture or video.",
+    button: "Write 3 ads",
+    runTitle: v => `${v.goal} ad (${v.product})`,
+    fields: [
+      { id: "product", label: "Product", type: "select",
+        options: () => [...storeProducts().map(p => p.name), "The whole store"] },
+      { id: "goal", label: "What's the ad for?", type: "chips",
+        options: ["Sell a product", "Christmas deadline", "Sale or code", "Bring back visitors"] },
+      { id: "angle", label: "Feel", type: "chips",
+        options: ["Heartfelt gift", "Cozy & warm", "Fun & playful", "Classy", "Hurry, Christmas is close"] },
+      { id: "place", label: "Where will it show?", type: "chips",
+        options: ["Feed (Facebook & Instagram)", "Stories & Reels"] },
+      { id: "extra", label: "Offer or code (optional)", type: "textarea",
+        placeholder: "Example: 15% off orders over $50 with code COZY15, ends Sunday",
+        hint: "The ads only mention a discount if you write it here." }
+    ],
+    example: [
+      { label: "Heartfelt gift", primaryText: "Her name, on the softest hoodie she owns. Made to order, just for her.\nOrder by December 10 to have it for Christmas.",
+        headline: "A hoodie with her name on it", description: "Made to order", button: "Shop now",
+        picture: "Close up photo of the hoodie folded on a bed with the name showing, soft window light. Real product, no models needed." }
+    ],
+    buildPrompt: v => {
+      const stories = v.place === "Stories & Reels";
+      const goalHint = {
+        "Sell a product": "Make people want this product as a gift and tap the button to shop.",
+        "Christmas deadline": `The reason to act now is the real deadline: order by ${STORE.christmasDeadline} for Christmas delivery. Friendly, not pushy.`,
+        "Sale or code": "Lead with the offer written under \"Offer\". If no offer is given, don't invent one; write a normal shopping ad instead.",
+        "Bring back visitors": "This ad is shown to people who already looked at the store. Give a warm, low pressure reminder of why it makes a great gift. Never say or hint that you saw them, know they visited, or know anything about them."
+      }[v.goal] || "";
+      return [
+        "You write paid Facebook and Instagram ads for a small online gift shop.",
+        storeFactsText(),
+        `Today's date: ${new Date().toDateString()}.`,
+        "",
+        `Write 3 different ads for: ${v.product}.`,
+        `Goal: ${v.goal}. ${goalHint}`,
+        `Feel: ${v.angle}.`,
+        `Placement: ${v.place}.`,
+        v.extra ? `Offer: ${v.extra}` : "Offer: none. Don't mention any discount, sale or code.",
+        "",
+        "Each ad has these parts:",
+        stories
+          ? "- primaryText: 1 or 2 short lines, under 125 characters total. Stories and Reels show very little text."
+          : "- primaryText: 2 to 4 short lines. The first line must hook people on its own and be under 125 characters, because Facebook cuts the rest off behind \"See more\".",
+        "- headline: under 40 characters. Says what it is or why to buy.",
+        "- description: under 30 characters. A small extra detail, like \"Made to order\" or \"Sizes S to 3XL\".",
+        "- button: one of Shop now, Order now, Get offer, Learn more. Use Get offer only when there is an offer.",
+        stories
+          ? "- picture: a vertical 6 to 15 second phone video idea he can film himself with the real product. Say what happens in it."
+          : "- picture: a photo or short video idea he can make himself with the real product. Say what's in the shot.",
+        "- label: a 2 to 4 word name for the ad's angle.",
+        "",
+        "Make the 3 ads genuinely different angles so he can test them, for example one about who it's for, one about the product itself, one about timing.",
+        "",
+        "Ad rules (Facebook and Instagram are strict, so follow every one):",
+        HUMAN_VOICE,
+        "- Never assert or imply things about the person seeing the ad: no \"Are you a mom?\", \"other grandmas like you\", \"you've been stressed\". Talk about the gift and who it's for instead (\"a gift for mom\" is fine).",
+        "- No made up urgency or scarcity like \"only 3 left\" or \"ends tonight\". Only the real Christmas deadline or an offer written above.",
+        "- No reviews, ratings, \"best seller\", \"#1\", \"customers love\" or numbers that aren't in the store facts.",
+        "- No words in ALL CAPS, no \"!!!\", at most 1 emoji per ad, no hashtags.",
+        "- Don't mention Facebook, Instagram or Meta in the ad.",
+        "- Don't put the store link in the text. It goes in the website box.",
+        "- Pictures must be real photos or videos of the real products. No stock photos, no models he doesn't have, no fake before and after.",
+        "",
+        "Answer with only JSON."
+      ].filter(Boolean).join("\n");
+    }
   }
 ];
 
@@ -446,6 +540,60 @@ function renderCards(container, items, isExample) {
   });
 }
 
+function copyButton(getText, label = "Copy") {
+  const b = el("button", { type: "button", class: "ghost small", text: label });
+  b.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(getText()); b.textContent = "Copied"; }
+    catch (e) { b.textContent = "Select the text to copy"; }
+    setTimeout(() => (b.textContent = label), 2000);
+  });
+  return b;
+}
+
+function renderAdCards(container, ads, isExample) {
+  container.replaceChildren(el("h3", { text: isExample ? "Example (yours will appear here)" : "Your ads" }));
+  const box = (name, value, limit, multiline) => {
+    const over = limit && value.length > limit;
+    return el("div", { class: "adbox" },
+      el("div", { class: "adbox-head" },
+        el("span", { class: "adbox-name", text: name }),
+        limit ? el("span", { class: "count" + (over ? " over" : ""), text: value.length + " / " + limit + (over ? " (may get cut off)" : "") }) : null,
+        copyButton(() => value)),
+      el("p", { class: multiline ? "text" : "text one", text: value }));
+  };
+  ads.forEach(a => {
+    const first = a.primaryText.split("\n")[0];
+    const all = ["Primary text:\n" + a.primaryText, "Headline: " + a.headline, "Description: " + a.description, "Button: " + a.button, "Website: " + storeLink()].join("\n\n");
+    container.append(el("article", { class: "card ad" + (isExample ? " example" : "") },
+      el("div", { class: "meta" }, el("span", { class: "tag", text: a.label || "Ad" }), copyButton(() => all, "Copy all")),
+      box("Primary text", a.primaryText, 0, true),
+      first.length > AD_LIMITS.hook ? el("p", { class: "count over", text: "The first line is " + first.length + " characters. Only about " + AD_LIMITS.hook + " show before \"See more\"." }) : null,
+      box("Headline", a.headline, AD_LIMITS.headline),
+      box("Description", a.description, AD_LIMITS.description),
+      el("dl", { class: "adfacts" },
+        el("div", {}, el("dt", { text: "Button" }), el("dd", { text: a.button })),
+        el("div", {}, el("dt", { text: "Website" }), el("dd", { text: storeLink() }))),
+      el("div", { class: "picture" }, el("span", { class: "adbox-name", text: "Picture or video" }), el("p", { text: a.picture }))
+    ));
+  });
+  if (!isExample) container.append(renderAdGuide());
+}
+
+function renderAdGuide() {
+  return el("details", { class: "card guide" },
+    el("summary", { text: "How to run these in Ads Manager" }),
+    el("ol", { class: "steps" },
+      el("li", { text: "Make sure the Facebook & Instagram app is set up in Shopify, so Meta can see when an ad leads to a sale." }),
+      el("li", { text: "In Ads Manager, create a campaign and choose Sales as the goal." }),
+      el("li", { text: "Pick a daily budget you're comfortable losing while you test. Start small. Ads usually need several days before you can tell what's working." }),
+      el("li", { text: "Leave the audience broad and let Meta find buyers, unless this is a \"Bring back visitors\" ad, which goes to people who visited the store." }),
+      el("li", { text: "Add all 3 ads to the same ad set using your own photos or videos, so Meta can show more of the one that works best." }),
+      el("li", { text: "Copy each box above into the matching box in Ads Manager, set the website to the store link, and check the preview before you publish." })
+    ),
+    el("p", { class: "hint", text: "Nothing is published or paid for from the hub. You stay in control of every ad and every dollar in Ads Manager." })
+  );
+}
+
 function renderTool() {
   const t = activeTool;
   if (t.render) { areaEl.replaceChildren(t.render()); return; }
@@ -458,7 +606,7 @@ function renderTool() {
   const status = el("p", { class: "status", role: "status" });
   form.append(go, status);
   const results = el("div", { class: "results" });
-  renderCards(results, t.example, true);
+  (t.output === "ads" ? renderAdCards : renderCards)(results, t.example, true);
 
   form.addEventListener("submit", async e => {
     e.preventDefault();
@@ -466,15 +614,15 @@ function renderTool() {
     try {
       const values = readValues(t);
       runTitle = t.runTitle ? t.runTitle(values) : t.name;
-      const items = await runAgents(t.buildPrompt(values), msg => (status.textContent = msg));
-      renderCards(results, items, false);
-      status.textContent = "Done. Tap Copy on the one you like.";
+      const items = await runAgents(t.buildPrompt(values), msg => (status.textContent = msg), FORMATS[t.output || "posts"]);
+      (t.output === "ads" ? renderAdCards : renderCards)(results, items, false);
+      status.textContent = t.output === "ads" ? "Done. Copy each box into Ads Manager." : "Done. Tap Copy on the one you like.";
     } catch (err) {
       if (err && err.code === "no_ai") { noticeEl.hidden = false; status.textContent = "The AI isn't running. Open the hub with the desktop shortcut and try again."; }
       else if (err && err.code === "no_model") status.textContent = `The AI model "${aiModel()}" isn't installed. Run the LOGAX setup again, or check the model name in Store settings.`;
       else if (err && err.code === "not_granted") { noticeEl.hidden = false; status.textContent = "AI access wasn't allowed. Allow it when asked, then try again."; }
       else if (err && err.code === "rate_limited") status.textContent = "Too many requests. Wait a minute and try again.";
-      else status.textContent = "Something went wrong writing the posts. Try again.";
+      else status.textContent = "Something went wrong writing that. Try again.";
     } finally {
       go.disabled = false;
       AGENTS.forEach(a => { if (agentState[a.id].status === "working" || agentState[a.id].status === "waiting") setAgent(a.id, "error", "Didn't finish this time."); });
@@ -502,7 +650,66 @@ const POSTS_SCHEMA = {
   },
   required: ["posts"]
 };
-const JSON_SHAPE = "Return only JSON in exactly this shape: {\"posts\": [{\"label\": \"...\", \"text\": \"...\", \"hashtags\": \"...\"}]}";
+const ADS_SCHEMA = {
+  type: "object",
+  properties: {
+    ads: { type: "array", items: { type: "object",
+      properties: { label: { type: "string" }, primaryText: { type: "string" }, headline: { type: "string" },
+        description: { type: "string" }, button: { type: "string", enum: ["Shop now", "Order now", "Get offer", "Learn more"] },
+        picture: { type: "string" } },
+      required: ["label", "primaryText", "headline", "description", "button", "picture"] } }
+  },
+  required: ["ads"]
+};
+const AD_LIMITS = { headline: 40, description: 30, hook: 125 };
+const AD_BUTTONS = ["Shop now", "Order now", "Get offer", "Learn more"];
+
+/* Each kind of output (posts, ads) says how the AI should answer and how
+   the agents check and tidy it. */
+const FORMATS = {
+  posts: {
+    key: "posts", noun: "post", schema: POSTS_SCHEMA,
+    shape: "Return only JSON in exactly this shape: {\"posts\": [{\"label\": \"...\", \"text\": \"...\", \"hashtags\": \"...\"}]}",
+    normalize: p => p && p.text ? { label: String(p.label || "Post"), text: String(p.text), hashtags: String(p.hashtags || "") } : null,
+    words: p => p.text + " " + p.label,
+    problems: () => [],
+    checks: () => "Check especially: no dashes of any kind, no AI or robot mentions, none of these words: " + BANNED.join(", ") + ", no invented prices, sales, reviews or stories, the store link is included exactly, and it sounds like a real small shop owner.",
+    final: items => finalPass(items),
+    same: (a, b) => a.text === b.text && a.hashtags === b.hashtags
+  },
+  ads: {
+    key: "ads", noun: "ad", schema: ADS_SCHEMA,
+    shape: "Return only JSON in exactly this shape: {\"ads\": [{\"label\": \"...\", \"primaryText\": \"...\", \"headline\": \"...\", \"description\": \"...\", \"button\": \"Shop now\", \"picture\": \"...\"}]}",
+    normalize: a => a && a.primaryText && a.headline ? {
+      label: String(a.label || "Ad"), primaryText: String(a.primaryText), headline: String(a.headline),
+      description: String(a.description || ""), button: AD_BUTTONS.includes(a.button) ? a.button : "Shop now",
+      picture: String(a.picture || "") } : null,
+    words: a => [a.label, a.primaryText, a.headline, a.description].join(" "),
+    problems: a => {
+      const out = [];
+      if (a.headline.length > AD_LIMITS.headline) out.push(`the headline is ${a.headline.length} characters, make it under ${AD_LIMITS.headline}`);
+      if (a.description.length > AD_LIMITS.description) out.push(`the description is ${a.description.length} characters, make it under ${AD_LIMITS.description}`);
+      const first = a.primaryText.split("\n")[0];
+      if (first.length > AD_LIMITS.hook) out.push(`the first line of primaryText is ${first.length} characters, make it under ${AD_LIMITS.hook}`);
+      if (/\b[A-Z]{4,}\b/.test(a.primaryText + " " + a.headline)) out.push("remove words written in ALL CAPS");
+      return out;
+    },
+    checks: () => [
+      "Check especially: no dashes of any kind, no AI or robot mentions, none of these words: " + BANNED.join(", ") + ".",
+      "Ad rules: never assert or imply things about the person seeing the ad (no \"Are you a mom?\", no \"we saw you looking\"), no made up urgency or scarcity, no reviews, ratings or \"best seller\" claims, no discount unless it was given as the offer, no ALL CAPS, no hashtags, no store link in the text, no mention of Facebook, Instagram or Meta.",
+      `Lengths: headline under ${AD_LIMITS.headline} characters, description under ${AD_LIMITS.description} characters, first line of primaryText under ${AD_LIMITS.hook} characters.`,
+      "The picture idea must use the real product he has, filmed or photographed by him."
+    ].join("\n"),
+    final: items => finalAdPass(items),
+    same: (a, b) => ["primaryText", "headline", "description", "button", "picture"].every(k => a[k] === b[k])
+  }
+};
+
+function toItems(out, fmt) {
+  const list = Array.isArray(out) ? out : (out && out[fmt.key]) || [];
+  return list.map(fmt.normalize).filter(Boolean);
+}
+
 const engineLine = document.getElementById("ai-engine-line");
 let engine = "local"; // "claude" or "local"
 
@@ -514,19 +721,14 @@ function aiAddress() { return (document.getElementById("ai-address").value.trim(
   input.addEventListener("change", () => { try { localStorage.setItem("logax-" + id, input.value.trim()); } catch (e) {} checkLocalAI(); });
 });
 
-function toPosts(out) {
-  const list = Array.isArray(out) ? out : (out && out.posts) || [];
-  return list.filter(p => p && p.text).map(p => ({ label: String(p.label || "Post"), text: String(p.text), hashtags: String(p.hashtags || "") }));
-}
-
-async function localChat(prompt) {
+async function localChat(prompt, fmt) {
   let res;
   try {
     res = await fetch(aiAddress() + "/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: aiModel(), stream: false, format: POSTS_SCHEMA,
-        options: { temperature: 0.8 }, messages: [{ role: "user", content: prompt + "\n\n" + JSON_SHAPE }] })
+      body: JSON.stringify({ model: aiModel(), stream: false, format: fmt.schema,
+        options: { temperature: 0.8 }, messages: [{ role: "user", content: prompt + "\n\n" + fmt.shape }] })
     });
   } catch (e) { throw { code: "no_ai" }; }
   if (res.status === 404) throw { code: "no_model" };
@@ -538,25 +740,50 @@ async function localChat(prompt) {
   return JSON.parse(start >= 0 ? text.slice(start, end + 1) : text);
 }
 
-async function askAI(prompt) {
-  if (engine === "claude") return sampleFn.json(prompt + "\n\n" + JSON_SHAPE);
-  return localChat(prompt);
+async function askAI(prompt, fmt) {
+  if (engine === "claude") return sampleFn.json(prompt + "\n\n" + fmt.shape);
+  return localChat(prompt, fmt);
 }
 
 const BANNED = ["elevate", "unleash", "look no further", "whether you're", "must-have", "game-changer", "next level", "in today's world", "embrace", "loved ones", "perfect gift", "thoughtful gift", "unique gift", "gift shopping dilemma", "look and feel", "cherish"];
 
-function checkerPrompt(writerPrompt, posts) {
+function checkerPrompt(writerPrompt, items, fmt) {
   return [
-    "You are a careful editor for a small gift shop's social media. Below are the instructions the writer was given, then the writer's drafts.",
-    "Fix every draft so it follows ALL the instructions. Keep the same format (scripts stay scripts, headings stay the same). Keep what's good; only change what breaks a rule or sounds like a robot or an ad agency.",
-    "Check especially: no dashes of any kind, no AI or robot mentions, none of these words: " + BANNED.join(", ") + ", no invented prices, sales, reviews or stories, the store link is included exactly, and it sounds like a real small shop owner.",
+    "You are a careful editor for a small gift shop's social media and ads. Below are the instructions the writer was given, then the writer's drafts.",
+    "Fix every draft so it follows ALL the instructions. Keep the same format and the same fields. Keep what's good; only change what breaks a rule or sounds like a robot or an ad agency.",
+    fmt.checks(),
     "",
     "WRITER INSTRUCTIONS:",
     writerPrompt,
     "",
     "DRAFTS:",
-    JSON.stringify({ posts }, null, 1)
+    JSON.stringify({ [fmt.key]: items }, null, 1)
   ].join("\n");
+}
+
+function cleanLine(t) {
+  return String(t)
+    .replace(/\s*[—–]\s*/g, ", ")
+    .replace(/ - /g, ", ")
+    .replace(/^(\s*)['"‘“]([^\n]*?)['"’”](?=\s|$)/gm, "$1$2")
+    .replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function finalAdPass(ads) {
+  const link = storeLink();
+  const linkRe = new RegExp("\\s*" + link.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*", "g");
+  return ads.map(a => {
+    const strip = t => cleanLine(t).replace(/\[(link|your link|store link|link to your store|your store)\]/gi, "")
+      .replace(linkRe, " ").replace(/[ \t]*#[\w]+/g, "").replace(/!{2,}/g, "!").replace(/[ \t]{2,}/g, " ").trim();
+    return {
+      label: a.label.replace(/\s*[—–]\s*/g, ": "),
+      primaryText: strip(a.primaryText),
+      headline: strip(a.headline).replace(/\n/g, " ").replace(/[.!]$/, ""),
+      description: strip(a.description).replace(/\n/g, " "),
+      button: a.button,
+      picture: cleanLine(a.picture)
+    };
+  });
 }
 
 function finalPass(posts) {
@@ -584,69 +811,72 @@ function finalPass(posts) {
   });
 }
 
-async function runAgents(prompt, say) {
+async function runAgents(prompt, say, fmt = FORMATS.posts) {
   if (engine === "claude" && !sampleFn) throw { code: "no_ai" };
   const started = Date.now();
   AGENTS.forEach(a => setAgent(a.id, "waiting", "Waiting for its turn."));
 
-  setAgent("writer", "working", "Writing 3 drafts…");
-  say(engine === "local" ? "Writer agent is drafting your posts… (local AI can take up to a minute)" : "Writer agent is drafting your posts…");
-  const drafts = toPosts(await askAI(prompt));
+  setAgent("writer", "working", "Writing 3 " + fmt.noun + "s…");
+  say("Writer agent is drafting your " + fmt.noun + "s…" + (engine === "local" ? " (local AI can take up to a minute)" : ""));
+  const drafts = toItems(await askAI(prompt, fmt), fmt);
   if (!drafts.length) throw { code: "error" };
-  setAgent("writer", "done", "Wrote " + plural(drafts.length, "draft") + ".");
+  setAgent("writer", "done", "Wrote " + plural(drafts.length, fmt.noun) + ".");
 
   setAgent("checker", "working", "Reading every draft…");
   say("Checker agent is reviewing them…");
   let checked = drafts;
-  let checkerNote = "Checked " + plural(drafts.length, "post") + ".";
+  let checkerNote = "Checked " + plural(drafts.length, fmt.noun) + ".";
   try {
-    const fixed = toPosts(await askAI(checkerPrompt(prompt, drafts)));
+    const fixed = toItems(await askAI(checkerPrompt(prompt, drafts, fmt), fmt), fmt);
     if (fixed.length) {
       checked = fixed;
-      const edited = fixed.filter((p, i) => !drafts[i] || p.text !== drafts[i].text).length;
-      checkerNote = edited ? "Edited " + edited + " of " + plural(fixed.length, "post") + "." : (fixed.length === 1 ? "The post passed." : "All " + fixed.length + " posts passed.");
+      const edited = fixed.filter((p, i) => !drafts[i] || !fmt.same(p, drafts[i])).length;
+      checkerNote = edited ? "Edited " + edited + " of " + plural(fixed.length, fmt.noun) + "." : (fixed.length === 1 ? "It passed." : "All " + fixed.length + " " + fmt.noun + "s passed.");
     }
   } catch (e) { checkerNote = "Couldn't finish, so the drafts went on to the next step."; }
   setAgent("checker", "done", checkerNote);
 
-  // Fix-up: any post that still uses a banned word gets one quick rewrite
-  const hasBanned = p => BANNED.filter(w => (p.text + " " + p.label).toLowerCase().includes(w));
+  // Polisher: anything that still breaks a rule gets one quick rewrite
+  const issues = p => [
+    ...BANNED.filter(w => fmt.words(p).toLowerCase().includes(w)).map(w => "don't use the words \"" + w + "\""),
+    ...fmt.problems(p)
+  ];
   let polished = 0;
-  const needs = checked.filter(p => hasBanned(p).length).length;
+  const needs = checked.filter(p => issues(p).length).length;
   if (!needs) setAgent("polisher", "done", "Nothing to fix.");
   for (let i = 0; i < checked.length; i++) {
-    const found = hasBanned(checked[i]);
+    const found = issues(checked[i]);
     if (!found.length) continue;
-    setAgent("polisher", "working", "Rewriting post " + (i + 1) + " (removing: " + found.join(", ") + ")…");
-    say("Checker agent is polishing post " + (i + 1) + "…");
+    setAgent("polisher", "working", "Fixing " + fmt.noun + " " + (i + 1) + "…");
+    say("Polisher agent is fixing " + fmt.noun + " " + (i + 1) + "…");
     try {
-      const redo = toPosts(await askAI([
-        "Rewrite this social media post so it does not use these words or phrases: " + found.join(", ") + ".",
-        "Keep everything else the same: same format, same store link, same meaning, same casual small shop voice. No dashes.",
-        JSON.stringify({ posts: [checked[i]] })
-      ].join("\n")));
-      if (redo.length && !hasBanned(redo[0]).length) { checked[i] = redo[0]; polished++; }
+      const redo = toItems(await askAI([
+        "Fix this " + fmt.noun + " for a small gift shop. Problems to fix: " + found.join("; ") + ".",
+        "Keep everything else the same: same fields, same format, same meaning, same casual small shop voice. No dashes.",
+        JSON.stringify({ [fmt.key]: [checked[i]] })
+      ].join("\n"), fmt), fmt);
+      if (redo.length && issues(redo[0]).length < found.length) { checked[i] = redo[0]; polished++; }
     } catch (e) {}
   }
-  if (needs) setAgent("polisher", "done", "Rewrote " + polished + " of " + plural(needs, "post") + ".");
+  if (needs) setAgent("polisher", "done", "Fixed " + polished + " of " + plural(needs, fmt.noun) + ".");
 
   setAgent("final", "working", "Tidying up…");
-  const out = finalPass(checked);
-  const fixes = out.filter((p, i) => p.text !== checked[i].text || p.hashtags !== checked[i].hashtags).length;
-  setAgent("final", "done", fixes ? "Tidied " + plural(fixes, "post") + "." : "Everything was already clean.");
+  const out = fmt.final(checked);
+  const fixes = out.filter((p, i) => !fmt.same(p, checked[i])).length;
+  setAgent("final", "done", fixes ? "Tidied " + plural(fixes, fmt.noun) + "." : "Everything was already clean.");
 
-  recordRun({ at: Date.now(), title: runTitle, ms: Date.now() - started, posts: out.length, polished, fixes });
+  recordRun({ at: Date.now(), title: runTitle, ms: Date.now() - started, posts: out.length, noun: fmt.noun, polished, fixes });
   return out;
 }
 
 /* ---------- AI Agents tab ---------- */
 const AGENTS = [
   { id: "writer", name: "Writer", kind: "AI agent",
-    role: "Writes 3 different drafts from what you picked: product, platform, type of post and mood." },
+    role: "Writes 3 different drafts from what you picked: product, where it's going, what it's for and the mood." },
   { id: "checker", name: "Checker", kind: "AI agent",
     role: "Reads every draft against the house rules. Sounds like a real person, never mentions AI, no made up reviews, right format for the platform." },
   { id: "polisher", name: "Polisher", kind: "AI agent",
-    role: "Rewrites any post that still has salesy or robotic phrases like \"elevate\" or \"must-have\"." },
+    role: "Rewrites anything that still sounds salesy or robotic, like \"elevate\" or \"must-have\", or that's too long for an ad box." },
   { id: "final", name: "Final Check", kind: "Built-in check",
     role: "Last pass before you see it. Removes dashes, lines up video scripts, puts hashtags in one place and adds the store link." }
 ];
@@ -682,12 +912,12 @@ function renderAgentsPage() {
   const stat = (num, label) => el("div", { class: "stat" }, el("b", { text: String(num) }), el("span", { text: label }));
   const head = el("div", { class: "panel" },
     el("h2", { text: "Your AI team" }),
-    el("p", { class: "lead", text: "Every post goes through these four steps before you see it. They run right here on this PC, so there's no cost per post." }),
+    el("p", { class: "lead", text: "Every post and ad goes through these four steps before you see it. They run right here on this PC, so there's no cost per post." }),
     el("p", { class: "lead", text: engineLine.textContent || "" }),
     el("div", { class: "stats" },
       stat(agentLog.length, "times they've written"),
-      stat(sum("posts"), "posts written"),
-      stat(sum("polished"), "posts polished"),
+      stat(sum("posts"), "posts and ads written"),
+      stat(sum("polished"), "polished"),
       stat(sum("fixes"), "final touch-ups"))
   );
   const cards = el("div", { class: "agents" }, AGENTS.map((a, i) => {
@@ -706,8 +936,8 @@ function renderAgentsPage() {
       ? el("ul", { class: "log" }, recent.map(r => el("li", {},
           el("time", { text: whenText(r.at) }),
           el("span", { text: r.title || "Posts" }),
-          el("span", { class: "took", text: plural(r.posts, "post") + " in " + Math.max(1, Math.round(r.ms / 1000)) + "s" }))))
-      : el("p", { class: "empty", text: "Nothing yet. Write a post in Post Writer and watch the team work here." })
+          el("span", { class: "took", text: plural(r.posts, r.noun || "post") + " in " + Math.max(1, Math.round(r.ms / 1000)) + "s" }))))
+      : el("p", { class: "empty", text: "Nothing yet. Write a post or an ad and watch the team work here." })
   );
   return el("div", { class: "team" }, head, cards, log);
 }
@@ -812,15 +1042,14 @@ async function loadProducts() {
 function shopRefresh() {
   if (activeTool && activeTool.id === "shopify") renderTool();
   // Keep Post Writer's product list in step with the store, keeping what's picked
-  const sel = document.getElementById("post-writer-product");
-  if (sel) {
+  ["post-writer-product", "ad-writer-product"].map(id => document.getElementById(id)).filter(Boolean).forEach(sel => {
     const picked = sel.value;
     const names = [...storeProducts().map(p => p.name), "The whole store"];
     if (names.join("|") !== [...sel.options].map(o => o.value).join("|")) {
       sel.replaceChildren(...names.map(n => el("option", { value: n, text: n })));
       if (names.includes(picked)) sel.value = picked;
     }
-  }
+  });
 }
 
 async function shopCheck() {
